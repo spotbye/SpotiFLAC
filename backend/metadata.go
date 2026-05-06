@@ -171,6 +171,9 @@ func EmbedMetadata(filepath string, metadata Metadata, coverPath string) error {
 	if metadata.UPC != "" {
 		_ = cmt.Add(preferredUPCTagKey, metadata.UPC)
 	}
+	if sourceURL := strings.TrimSpace(metadata.URL); sourceURL != "" {
+		_ = cmt.Add("SOURCE", sourceURL)
+	}
 
 	if genreValues := SplitMetadataValues(metadata.Genre, separator); len(genreValues) > 0 {
 		addVorbisTagValues(cmt, "GENRE", genreValues)
@@ -1098,6 +1101,16 @@ func embedMetadataToMP3(filePath string, metadata Metadata, coverPath string) er
 		})
 	}
 
+	if sourceURL := strings.TrimSpace(metadata.URL); sourceURL != "" {
+		tag.DeleteFrames("WOAS")
+		tag.AddFrame("WOAS", id3v2.UnknownFrame{Body: []byte(sourceURL)})
+		tag.AddUserDefinedTextFrame(id3v2.UserDefinedTextFrame{
+			Encoding:    id3v2.EncodingUTF8,
+			Description: "SOURCE",
+			Value:       sourceURL,
+		})
+	}
+
 	if comment := resolveMetadataComment(metadata); comment != "" {
 		tag.DeleteFrames(tag.CommonID("Comments"))
 		tag.AddCommentFrame(id3v2.CommentFrame{
@@ -1228,6 +1241,9 @@ func embedMetadataToM4A(filePath string, metadata Metadata, coverPath string) er
 	}
 	if comment := resolveMetadataComment(metadata); comment != "" {
 		args = append(args, "-metadata", "comment="+comment)
+	}
+	if sourceURL := strings.TrimSpace(metadata.URL); sourceURL != "" {
+		args = append(args, "-metadata", "source="+sourceURL)
 	}
 
 	tmpOutputFile := strings.TrimSuffix(filePath, pathfilepath.Ext(filePath)) + ".tmp" + pathfilepath.Ext(filePath)
