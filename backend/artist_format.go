@@ -66,6 +66,39 @@ func SplitArtistCredits(artistStr, separator string) []string {
 	return result
 }
 
+// MoveFeaturedArtistsToTitle, when the "moveFeaturedArtistsToTitle" setting is
+// enabled and the track has multiple credited artists, returns the lead artist
+// alone alongside a title that has " (feat. ...)" appended for the remaining
+// artists. When the setting is disabled, only one artist is credited, or the
+// title already advertises a feature, the values are returned unchanged
+// (except that, when the setting is on, the artist is still narrowed to the
+// lead). The setting is read inside this helper so call sites stay simple.
+func MoveFeaturedArtistsToTitle(artist, title, separator string) (string, string) {
+	if !GetMoveFeaturedArtistsToTitleSetting() {
+		return artist, title
+	}
+
+	credits := SplitArtistCredits(artist, separator)
+	if len(credits) <= 1 {
+		return artist, title
+	}
+
+	main := credits[0]
+	feats := credits[1:]
+
+	lowerTitle := strings.ToLower(title)
+	featMarkers := []string{"(feat.", "(ft.", "(featuring", "[feat.", "[ft.", "[featuring"}
+	for _, marker := range featMarkers {
+		if strings.Contains(lowerTitle, marker) {
+			return main, title
+		}
+	}
+
+	suffix := " (feat. " + strings.Join(feats, " & ") + ")"
+	newTitle := strings.TrimRight(title, " \t") + suffix
+	return main, newTitle
+}
+
 func SplitMetadataValues(value, separator string) []string {
 	rawParts := splitArtistSegment(value, separator)
 	if len(rawParts) == 0 {
