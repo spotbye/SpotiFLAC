@@ -54,6 +54,7 @@ export interface Settings {
     useSingleGenre: boolean;
     embedGenre: boolean;
     redownloadWithSuffix: boolean;
+    moveFeaturedArtistsToTitle: boolean;
     separator: "comma" | "semicolon";
 }
 export const FOLDER_PRESETS: Record<FolderPreset, {
@@ -197,6 +198,7 @@ export const DEFAULT_SETTINGS: Settings = {
     useSingleGenre: false,
     embedGenre: false,
     redownloadWithSuffix: false,
+    moveFeaturedArtistsToTitle: false,
     separator: "semicolon",
 };
 export const FONT_OPTIONS: FontOption[] = [
@@ -623,6 +625,9 @@ function normalizeSettingsPayload(settings: SettingsPayload): SettingsPayload {
     }
     if (!("redownloadWithSuffix" in normalized)) {
         normalized.redownloadWithSuffix = false;
+    }
+    if (!("moveFeaturedArtistsToTitle" in normalized)) {
+        normalized.moveFeaturedArtistsToTitle = false;
     }
     normalized.operatingSystem = detectOS();
     const normalizedCustomFonts = normalizeCustomFonts(normalized.customFonts);

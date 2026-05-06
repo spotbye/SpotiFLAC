@@ -763,6 +763,16 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                 </Label>
               </div>
 
+              <div className="flex items-center gap-3">
+                <Switch id="move-featured-artists-to-title" checked={tempSettings.moveFeaturedArtistsToTitle} onCheckedChange={(checked) => setTempSettings((prev) => ({
+                ...prev,
+                moveFeaturedArtistsToTitle: checked,
+            }))}/>
+                <Label htmlFor="move-featured-artists-to-title" className="text-sm cursor-pointer font-normal">
+                  Move featured artists from artist to title
+                </Label>
+              </div>
+
 
             </div>
 

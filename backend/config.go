@@ -60,6 +60,16 @@ func GetRedownloadWithSuffixSetting() bool {
 	return enabled
 }
 
+func GetMoveFeaturedArtistsToTitleSetting() bool {
+	settings, err := LoadConfigSettings()
+	if err != nil || settings == nil {
+		return false
+	}
+
+	enabled, _ := settings["moveFeaturedArtistsToTitle"].(bool)
+	return enabled
+}
+
 func GetCustomTidalAPISetting() string {
 	settings, err := LoadConfigSettings()
 	if err != nil || settings == nil {

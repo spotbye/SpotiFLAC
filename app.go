@@ -596,6 +596,8 @@ func (a *App) DownloadTrack(req DownloadRequest) (DownloadResponse, error) {
 		}
 	}
 
+	req.ArtistName, req.TrackName = backend.MoveFeaturedArtistsToTitle(req.ArtistName, req.TrackName, metadataSeparator)
+
 	if req.TrackName != "" && req.ArtistName != "" {
 		expectedFilename := backend.BuildExpectedFilename(req.TrackName, req.ArtistName, req.AlbumName, req.AlbumArtist, req.ReleaseDate, req.FilenameFormat, req.PlaylistName, req.PlaylistOwner, req.TrackNumber, req.Position, req.SpotifyDiscNumber, req.UseAlbumTrackNumber, req.ISRC)
 		expectedPath := filepath.Join(req.OutputDir, expectedFilename)
@@ -1889,6 +1891,7 @@ func (a *App) CheckFilesExistence(outputDir string, rootDir string, tracks []Che
 	defaultFilenameFormat := "title-artist"
 	redownloadWithSuffix := backend.GetRedownloadWithSuffixSetting()
 	existingFileCheckMode := backend.GetExistingFileCheckModeSetting()
+	existenceSeparator := backend.GetSeparator()
 	scanRoot := outputDir
 	if rootDir != "" {
 		scanRoot = rootDir
@@ -1922,6 +1925,10 @@ func (a *App) CheckFilesExistence(outputDir string, rootDir string, tracks []Che
 				resultsChan <- result{index: idx, result: res}
 				return
 			}
+
+			t.ArtistName, t.TrackName = backend.MoveFeaturedArtistsToTitle(t.ArtistName, t.TrackName, existenceSeparator)
+			res.TrackName = t.TrackName
+			res.ArtistName = t.ArtistName
 
 			filenameFormat := t.FilenameFormat
 			if filenameFormat == "" {
