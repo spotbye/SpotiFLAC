@@ -763,6 +763,16 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                 </Label>
               </div>
 
+              <div className="flex items-center gap-3">
+                <Switch id="append-explicit-tag" checked={tempSettings.appendExplicitTag} onCheckedChange={(checked) => setTempSettings((prev) => ({
+                ...prev,
+                appendExplicitTag: checked,
+            }))}/>
+                <Label htmlFor="append-explicit-tag" className="text-sm cursor-pointer font-normal">
+                  Append 🅴 to explicit track titles
+                </Label>
+              </div>
+
 
             </div>
 

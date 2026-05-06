@@ -21,6 +21,7 @@ interface CheckFileExistenceRequest {
     include_track_number?: boolean;
     audio_format?: string;
     relative_path?: string;
+    is_explicit?: boolean;
 }
 interface FileExistenceResult {
     spotify_id: string;
@@ -85,7 +86,7 @@ export function useDownload(region: string) {
         setDownloadProgress(safeTotalCount > 0 ? Math.min(100, Math.round((safeCompletedCount / safeTotalCount) * 100)) : 0);
         setDownloadRemainingCount(Math.max(0, safeTotalCount - safeCompletedCount));
     };
-    const downloadWithAutoFallback = async (id: string, settings: any, trackName?: string, artistName?: string, albumName?: string, playlistName?: string, position?: number, spotifyId?: string, durationMs?: number, releaseYear?: string, albumArtist?: string, releaseDate?: string, coverUrl?: string, spotifyTrackNumber?: number, spotifyDiscNumber?: number, spotifyTotalTracks?: number, spotifyTotalDiscs?: number, copyright?: string, publisher?: string) => {
+    const downloadWithAutoFallback = async (id: string, settings: any, trackName?: string, artistName?: string, albumName?: string, playlistName?: string, position?: number, spotifyId?: string, durationMs?: number, releaseYear?: string, albumArtist?: string, releaseDate?: string, coverUrl?: string, spotifyTrackNumber?: number, spotifyDiscNumber?: number, spotifyTotalTracks?: number, spotifyTotalDiscs?: number, copyright?: string, publisher?: string, isExplicit?: boolean) => {
         const service = settings.downloader;
         const query = trackName && artistName ? `${trackName} ${artistName} ` : undefined;
         const os = settings.operatingSystem;
@@ -171,6 +172,7 @@ export function useDownload(region: string) {
                     filename_format: settings.filenameTemplate || "",
                     include_track_number: settings.trackNumber || false,
                     audio_format: serviceForCheck,
+                    is_explicit: isExplicit,
                 };
                 const existenceResults = await CheckFilesExistence(outputDir, settings.downloadPath, [checkRequest]);
                 if (existenceResults.length > 0 && existenceResults[0].exists) {
@@ -247,6 +249,7 @@ export function useDownload(region: string) {
                             use_first_artist_only: settings.useFirstArtistOnly,
                             use_single_genre: settings.useSingleGenre,
                             embed_genre: settings.embedGenre,
+                            is_explicit: isExplicit,
                         });
                         if (response.success) {
                             logger.success(`Tidal: ${trackName} - ${artistName}`);
@@ -294,6 +297,7 @@ export function useDownload(region: string) {
                             publisher: publisher,
                             use_single_genre: settings.useSingleGenre,
                             embed_genre: settings.embedGenre,
+                            is_explicit: isExplicit,
                         });
                         if (response.success) {
                             logger.success(`amazon: ${trackName} - ${artistName}`);
@@ -341,6 +345,7 @@ export function useDownload(region: string) {
                             publisher: publisher,
                             use_single_genre: settings.useSingleGenre,
                             embed_genre: settings.embedGenre,
+                            is_explicit: isExplicit,
                         });
                         if (response.success) {
                             logger.success(`qobuz: ${trackName} - ${artistName}`);
@@ -408,6 +413,7 @@ export function useDownload(region: string) {
             use_first_artist_only: settings.useFirstArtistOnly,
             use_single_genre: settings.useSingleGenre,
             embed_genre: settings.embedGenre,
+            is_explicit: isExplicit,
         });
         if (!singleServiceResponse.success && itemID) {
             const { MarkDownloadItemFailed } = await import("../../wailsjs/go/main/App");
@@ -415,7 +421,7 @@ export function useDownload(region: string) {
         }
         return singleServiceResponse;
     };
-    const downloadWithItemID = async (settings: any, itemID: string, trackName?: string, artistName?: string, albumName?: string, folderName?: string, position?: number, spotifyId?: string, durationMs?: number, isAlbum?: boolean, releaseYear?: string, albumArtist?: string, releaseDate?: string, coverUrl?: string, spotifyTrackNumber?: number, spotifyDiscNumber?: number, spotifyTotalTracks?: number, spotifyTotalDiscs?: number, copyright?: string, publisher?: string) => {
+    const downloadWithItemID = async (settings: any, itemID: string, trackName?: string, artistName?: string, albumName?: string, folderName?: string, position?: number, spotifyId?: string, durationMs?: number, isAlbum?: boolean, releaseYear?: string, albumArtist?: string, releaseDate?: string, coverUrl?: string, spotifyTrackNumber?: number, spotifyDiscNumber?: number, spotifyTotalTracks?: number, spotifyTotalDiscs?: number, copyright?: string, publisher?: string, isExplicit?: boolean) => {
         const service = settings.downloader;
         const query = trackName && artistName ? `${trackName} ${artistName}` : undefined;
         const os = settings.operatingSystem;
@@ -530,6 +536,7 @@ export function useDownload(region: string) {
                             use_first_artist_only: settings.useFirstArtistOnly,
                             use_single_genre: settings.useSingleGenre,
                             embed_genre: settings.embedGenre,
+                            is_explicit: isExplicit,
                         });
                         if (response.success) {
                             logger.success(`Tidal: ${trackName} - ${artistName}`);
@@ -578,6 +585,7 @@ export function useDownload(region: string) {
                             use_first_artist_only: settings.useFirstArtistOnly,
                             use_single_genre: settings.useSingleGenre,
                             embed_genre: settings.embedGenre,
+                            is_explicit: isExplicit,
                         });
                         if (response.success) {
                             logger.success(`amazon: ${trackName} - ${artistName}`);
@@ -627,6 +635,7 @@ export function useDownload(region: string) {
                             use_first_artist_only: settings.useFirstArtistOnly,
                             use_single_genre: settings.useSingleGenre,
                             embed_genre: settings.embedGenre,
+                            is_explicit: isExplicit,
                         });
                         if (response.success) {
                             logger.success(`qobuz: ${trackName} - ${artistName}`);
@@ -689,6 +698,7 @@ export function useDownload(region: string) {
             use_first_artist_only: settings.useFirstArtistOnly,
             use_single_genre: settings.useSingleGenre,
             embed_genre: settings.embedGenre,
+            is_explicit: isExplicit,
         });
         if (!singleServiceResponse.success && itemID) {
             const { MarkDownloadItemFailed } = await import("../../wailsjs/go/main/App");
@@ -696,7 +706,7 @@ export function useDownload(region: string) {
         }
         return singleServiceResponse;
     };
-    const handleDownloadTrack = async (id: string, trackName?: string, artistName?: string, albumName?: string, spotifyId?: string, playlistName?: string, durationMs?: number, position?: number, albumArtist?: string, releaseDate?: string, coverUrl?: string, spotifyTrackNumber?: number, spotifyDiscNumber?: number, spotifyTotalTracks?: number, spotifyTotalDiscs?: number, copyright?: string, publisher?: string) => {
+    const handleDownloadTrack = async (id: string, trackName?: string, artistName?: string, albumName?: string, spotifyId?: string, playlistName?: string, durationMs?: number, position?: number, albumArtist?: string, releaseDate?: string, coverUrl?: string, spotifyTrackNumber?: number, spotifyDiscNumber?: number, spotifyTotalTracks?: number, spotifyTotalDiscs?: number, copyright?: string, publisher?: string, isExplicit?: boolean) => {
         if (!id) {
             toast.error("No ID found for this track");
             return;
@@ -707,7 +717,7 @@ export function useDownload(region: string) {
         setDownloadingTrack(id);
         try {
             const releaseYear = releaseDate?.substring(0, 4);
-            const response = await downloadWithAutoFallback(id, settings, trackName, artistName, albumName, playlistName, position, spotifyId, durationMs, releaseYear, albumArtist || "", releaseDate, coverUrl, spotifyTrackNumber, spotifyDiscNumber, spotifyTotalTracks, spotifyTotalDiscs, copyright, publisher);
+            const response = await downloadWithAutoFallback(id, settings, trackName, artistName, albumName, playlistName, position, spotifyId, durationMs, releaseYear, albumArtist || "", releaseDate, coverUrl, spotifyTrackNumber, spotifyDiscNumber, spotifyTotalTracks, spotifyTotalDiscs, copyright, publisher, isExplicit);
             if (response.success) {
                 if (response.already_exists) {
                     toast.info(response.message);
@@ -777,6 +787,7 @@ export function useDownload(region: string) {
                 filename_format: settings.filenameTemplate || "",
                 include_track_number: settings.trackNumber || false,
                 audio_format: audioFormat,
+                is_explicit: track.is_explicit,
             };
         });
         const existenceResults = await CheckFilesExistence(outputDir, settings.downloadPath, existenceChecks);
@@ -831,7 +842,7 @@ export function useDownload(region: string) {
             setCurrentDownloadInfo({ name: track.name, artists: displayArtist || "" });
             try {
                 const releaseYear = track.release_date?.substring(0, 4);
-                const response = await downloadWithItemID(settings, itemID, track.name, track.artists, track.album_name, folderName, originalIndex + 1, track.spotify_id, track.duration_ms, isAlbum, releaseYear, track.album_artist || "", track.release_date, track.images, track.track_number, track.disc_number, track.total_tracks, track.total_discs, track.copyright, track.publisher);
+                const response = await downloadWithItemID(settings, itemID, track.name, track.artists, track.album_name, folderName, originalIndex + 1, track.spotify_id, track.duration_ms, isAlbum, releaseYear, track.album_artist || "", track.release_date, track.images, track.track_number, track.disc_number, track.total_tracks, track.total_discs, track.copyright, track.publisher, track.is_explicit);
                 if (response.success) {
                     if (response.already_exists) {
                         skippedCount++;
@@ -952,6 +963,7 @@ export function useDownload(region: string) {
                 filename_format: settings.filenameTemplate || "",
                 include_track_number: settings.trackNumber || false,
                 audio_format: audioFormat,
+                is_explicit: track.is_explicit,
             };
         });
         const existenceResults = await CheckFilesExistence(outputDir, settings.downloadPath, existenceChecks);
@@ -1004,7 +1016,7 @@ export function useDownload(region: string) {
             setCurrentDownloadInfo({ name: track.name || "", artists: displayArtist || "" });
             try {
                 const releaseYear = track.release_date?.substring(0, 4);
-                const response = await downloadWithItemID(settings, itemID, track.name, track.artists, track.album_name, folderName, originalIndex + 1, track.spotify_id, track.duration_ms, isAlbum, releaseYear, track.album_artist || "", track.release_date, track.images, track.track_number, track.disc_number, track.total_tracks, track.total_discs, track.copyright, track.publisher);
+                const response = await downloadWithItemID(settings, itemID, track.name, track.artists, track.album_name, folderName, originalIndex + 1, track.spotify_id, track.duration_ms, isAlbum, releaseYear, track.album_artist || "", track.release_date, track.images, track.track_number, track.disc_number, track.total_tracks, track.total_discs, track.copyright, track.publisher, track.is_explicit);
                 if (response.success) {
                     if (response.already_exists) {
                         skippedCount++;
