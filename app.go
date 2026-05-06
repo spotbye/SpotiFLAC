@@ -1890,6 +1890,19 @@ func (a *App) CheckFilesExistence(outputDir string, rootDir string, tracks []Che
 	redownloadWithSuffix := backend.GetRedownloadWithSuffixSetting()
 	existingFileCheckMode := backend.GetExistingFileCheckModeSetting()
 	scanRoot := outputDir
+
+	if existingFileCheckMode == "none" {
+		results := make([]CheckFileExistenceResult, len(tracks))
+		for i, t := range tracks {
+			results[i] = CheckFileExistenceResult{
+				SpotifyID:  t.SpotifyID,
+				TrackName:  t.TrackName,
+				ArtistName: t.ArtistName,
+				Exists:     false,
+			}
+		}
+		return results
+	}
 	if rootDir != "" {
 		scanRoot = rootDir
 	}
