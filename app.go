@@ -334,6 +334,7 @@ type DownloadRequest struct {
 	UseSingleGenre       bool   `json:"use_single_genre,omitempty"`
 	EmbedGenre           bool   `json:"embed_genre,omitempty"`
 	Separator            string `json:"separator,omitempty"`
+	IsExplicit           bool   `json:"is_explicit,omitempty"`
 }
 
 type DownloadResponse struct {
@@ -500,6 +501,8 @@ func (a *App) DownloadTrack(req DownloadRequest) (DownloadResponse, error) {
 	if req.AudioFormat == "" {
 		req.AudioFormat = "LOSSLESS"
 	}
+
+	req.TrackName = backend.ApplyExplicitTitleSuffix(req.TrackName, req.IsExplicit)
 
 	var err error
 	var filename string
@@ -1804,6 +1807,7 @@ type CheckFileExistenceRequest struct {
 	IncludeTrackNumber  bool   `json:"include_track_number,omitempty"`
 	AudioFormat         string `json:"audio_format,omitempty"`
 	RelativePath        string `json:"relative_path,omitempty"`
+	IsExplicit          bool   `json:"is_explicit,omitempty"`
 }
 
 type CheckFileExistenceResult struct {
@@ -1947,7 +1951,7 @@ func (a *App) CheckFilesExistence(outputDir string, rootDir string, tracks []Che
 			}
 
 			expectedFilenameBase := backend.BuildExpectedFilename(
-				t.TrackName,
+				backend.ApplyExplicitTitleSuffix(t.TrackName, t.IsExplicit),
 				t.ArtistName,
 				t.AlbumName,
 				t.AlbumArtist,

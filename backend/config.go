@@ -60,6 +60,16 @@ func GetRedownloadWithSuffixSetting() bool {
 	return enabled
 }
 
+func GetAppendExplicitTagSetting() bool {
+	settings, err := LoadConfigSettings()
+	if err != nil || settings == nil {
+		return false
+	}
+
+	enabled, _ := settings["appendExplicitTag"].(bool)
+	return enabled
+}
+
 func GetCustomTidalAPISetting() string {
 	settings, err := LoadConfigSettings()
 	if err != nil || settings == nil {

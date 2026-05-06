@@ -10,6 +10,21 @@ import (
 	"unicode/utf8"
 )
 
+const explicitTitleSuffix = "🅴"
+
+func ApplyExplicitTitleSuffix(title string, isExplicit bool) string {
+	if !isExplicit || title == "" {
+		return title
+	}
+	if !GetAppendExplicitTagSetting() {
+		return title
+	}
+	if strings.HasSuffix(strings.TrimSpace(title), explicitTitleSuffix) {
+		return title
+	}
+	return strings.TrimRight(title, " ") + " " + explicitTitleSuffix
+}
+
 func buildFormattedFilenameBase(trackName, artistName, albumName, albumArtist, releaseDate, filenameFormat, playlistName, playlistOwner, isrc string, includeTrackNumber bool, position, discNumber int, useAlbumTrackNumber bool) string {
 	safeTitle := SanitizeFilename(trackName)
 	safeArtist := SanitizeFilename(artistName)

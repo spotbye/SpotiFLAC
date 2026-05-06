@@ -144,6 +144,7 @@ export interface DownloadRequest {
     use_first_artist_only?: boolean;
     use_single_genre?: boolean;
     embed_genre?: boolean;
+    is_explicit?: boolean;
 }
 export interface DownloadResponse {
     success: boolean;
