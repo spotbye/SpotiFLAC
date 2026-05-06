@@ -583,7 +583,7 @@ func (t *TidalDownloader) DownloadByURL(tidalURL, outputDir, quality, filenameFo
 	if err != nil {
 		return "", err
 	}
-	if alreadyExists {
+	if alreadyExists && !ExistingFileCheckDisabled() {
 		fmt.Printf("File already exists: %s (%.2f MB)\n", outputFilename, float64(mustFileSize(outputFilename))/(1024*1024))
 		return "EXISTS:" + outputFilename, nil
 	}
@@ -635,7 +635,7 @@ func (t *TidalDownloader) DownloadByURLWithFallback(tidalURL, outputDir, quality
 	if err != nil {
 		return "", err
 	}
-	if alreadyExists {
+	if alreadyExists && !ExistingFileCheckDisabled() {
 		fmt.Printf("File already exists: %s (%.2f MB)\n", outputFilename, float64(mustFileSize(outputFilename))/(1024*1024))
 		return "EXISTS:" + outputFilename, nil
 	}

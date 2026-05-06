@@ -303,7 +303,7 @@ func (a *AmazonDownloader) DownloadByURL(amazonURL, outputDir, quality, filename
 		expectedFilename := BuildExpectedFilename(spotifyTrackName, filenameArtist, spotifyAlbumName, filenameAlbumArtist, spotifyReleaseDate, filenameFormat, playlistName, playlistOwner, includeTrackNumber, position, spotifyDiscNumber, false, isrcOverride)
 		expectedPath := filepath.Join(outputDir, expectedFilename)
 
-		if !GetRedownloadWithSuffixSetting() {
+		if !GetRedownloadWithSuffixSetting() && !ExistingFileCheckDisabled() {
 			if fileInfo, err := os.Stat(expectedPath); err == nil && fileInfo.Size() > 0 {
 				fmt.Printf("File already exists: %s (%.2f MB)\n", expectedPath, float64(fileInfo.Size())/(1024*1024))
 				return "EXISTS:" + expectedPath, nil

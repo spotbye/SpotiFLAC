@@ -779,6 +779,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                   <SelectContent>
                     <SelectItem value="filename">Filename</SelectItem>
                     <SelectItem value="isrc">ISRC</SelectItem>
+                    <SelectItem value="none">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

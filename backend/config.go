@@ -79,6 +79,8 @@ func normalizeExistingFileCheckMode(value string) string {
 	switch strings.TrimSpace(strings.ToLower(value)) {
 	case "isrc", "upc":
 		return "isrc"
+	case "none", "off", "disabled":
+		return "none"
 	default:
 		return "filename"
 	}
@@ -92,6 +94,10 @@ func GetExistingFileCheckModeSetting() string {
 
 	rawMode, _ := settings["existingFileCheckMode"].(string)
 	return normalizeExistingFileCheckMode(rawMode)
+}
+
+func ExistingFileCheckDisabled() bool {
+	return GetExistingFileCheckModeSetting() == "none"
 }
 
 func GetLinkResolverSetting() string {

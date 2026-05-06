@@ -82,6 +82,10 @@ func BuildExpectedFilename(trackName, artistName, albumName, albumArtist, releas
 }
 
 func ResolveOutputPathForDownload(path string, redownloadWithSuffix bool) (string, bool) {
+	if ExistingFileCheckDisabled() {
+		return path, false
+	}
+
 	if !redownloadWithSuffix {
 		if info, err := os.Stat(path); err == nil && info.Size() > 0 {
 			return path, true
