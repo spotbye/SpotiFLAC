@@ -1,5 +1,6 @@
 # Wails Build
 build/
+SpotiFLAC
 *.exe
 *.dll
 *.dylib
