@@ -692,6 +692,19 @@ func (a *App) DownloadTrack(req DownloadRequest) (DownloadResponse, error) {
 		}
 		filename, err = downloader.DownloadTrackWithISRC(isrc, req.OutputDir, quality, req.FilenameFormat, req.TrackNumber, req.Position, req.TrackName, req.ArtistName, req.AlbumName, req.AlbumArtist, req.ReleaseDate, req.UseAlbumTrackNumber, req.CoverURL, req.EmbedMaxQualityCover, req.SpotifyTrackNumber, req.SpotifyDiscNumber, req.SpotifyTotalTracks, req.SpotifyTotalDiscs, req.Copyright, req.Publisher, req.Composer, metadataSeparator, spotifyURL, req.AllowFallback, req.UseFirstArtistOnly, req.UseSingleGenre, req.EmbedGenre)
 
+	case "youtube":
+		downloader := backend.NewYouTubeDownloader()
+		genre := ""
+		filename, err = downloader.Download(
+			req.TrackName, req.ArtistName, req.AlbumName, req.AlbumArtist,
+			req.ReleaseDate, req.CoverURL, req.OutputDir, req.FilenameFormat,
+			req.TrackNumber, req.Position, req.SpotifyTrackNumber, req.SpotifyDiscNumber,
+			req.SpotifyTotalTracks, req.SpotifyTotalDiscs,
+			req.Copyright, req.Publisher, req.Composer, metadataSeparator, req.ISRC, spotifyURL,
+			req.EmbedMaxQualityCover, req.UseFirstArtistOnly, req.EmbedGenre,
+			req.Duration, genre,
+		)
+
 	default:
 		return DownloadResponse{
 			Success: false,

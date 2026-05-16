@@ -358,6 +358,50 @@ export function useDownload(region: string) {
                     }
                 }
             }
+            if (!lastResponse.success && settings.youtubeFallback && trackName && artistName) {
+                try {
+                    logger.debug(`trying YouTube fallback for: ${trackName} - ${artistName}`);
+                    const response = await downloadTrack({
+                        service: "youtube",
+                        track_name: trackName,
+                        artist_name: displayArtist,
+                        album_name: albumName,
+                        album_artist: displayAlbumArtist,
+                        release_date: finalReleaseDate || releaseDate,
+                        cover_url: coverUrl,
+                        output_dir: outputDir,
+                        filename_format: settings.filenameTemplate,
+                        track_number: settings.trackNumber,
+                        position: trackNumberForTemplate,
+                        use_album_track_number: useAlbumTrackNumber,
+                        spotify_id: spotifyId,
+                        embed_max_quality_cover: settings.embedMaxQualityCover,
+                        duration: durationSeconds,
+                        item_id: itemID,
+                        spotify_track_number: spotifyTrackNumber,
+                        spotify_disc_number: spotifyDiscNumber,
+                        spotify_total_tracks: spotifyTotalTracks,
+                        spotify_total_discs: spotifyTotalDiscs,
+                        isrc: resolvedTemplateISRC || undefined,
+                        copyright: copyright,
+                        publisher: publisher,
+                        use_first_artist_only: settings.useFirstArtistOnly,
+                        use_single_genre: settings.useSingleGenre,
+                        embed_genre: settings.embedGenre,
+                    });
+                    if (response.success) {
+                        logger.success(`YouTube fallback: ${trackName} - ${artistName}`);
+                        return response;
+                    }
+                    fallbackErrors.push(`[YouTube] ${response.error || "Failed"}`);
+                    lastResponse = response;
+                }
+                catch (err) {
+                    logger.error(`YouTube fallback error: ${err}`);
+                    fallbackErrors.push(`[YouTube] ${String(err)}`);
+                    lastResponse = { success: false, error: String(err) };
+                }
+            }
             if (itemID) {
                 const { MarkDownloadItemFailed } = await import("../../wailsjs/go/main/App");
                 const finalError = fallbackErrors.length > 0 ? fallbackErrors.join(" | ") : (lastResponse.error || "All services failed");
@@ -642,6 +686,50 @@ export function useDownload(region: string) {
                         fallbackErrors.push(`[Qobuz] ${String(err)}`);
                         lastResponse = { success: false, error: String(err) };
                     }
+                }
+            }
+            if (!lastResponse.success && settings.youtubeFallback && trackName && artistName) {
+                try {
+                    logger.debug(`trying YouTube fallback for: ${trackName} - ${artistName}`);
+                    const response = await downloadTrack({
+                        service: "youtube",
+                        track_name: trackName,
+                        artist_name: displayArtist,
+                        album_name: albumName,
+                        album_artist: displayAlbumArtist,
+                        release_date: finalReleaseDate || releaseDate,
+                        cover_url: coverUrl,
+                        output_dir: outputDir,
+                        filename_format: settings.filenameTemplate,
+                        track_number: settings.trackNumber,
+                        position: trackNumberForTemplate,
+                        use_album_track_number: useAlbumTrackNumber,
+                        spotify_id: spotifyId,
+                        embed_max_quality_cover: settings.embedMaxQualityCover,
+                        duration: durationSeconds,
+                        item_id: itemID,
+                        spotify_track_number: spotifyTrackNumber,
+                        spotify_disc_number: spotifyDiscNumber,
+                        spotify_total_tracks: spotifyTotalTracks,
+                        spotify_total_discs: spotifyTotalDiscs,
+                        isrc: resolvedTemplateISRC || undefined,
+                        copyright: copyright,
+                        publisher: publisher,
+                        use_first_artist_only: settings.useFirstArtistOnly,
+                        use_single_genre: settings.useSingleGenre,
+                        embed_genre: settings.embedGenre,
+                    });
+                    if (response.success) {
+                        logger.success(`YouTube fallback: ${trackName} - ${artistName}`);
+                        return response;
+                    }
+                    fallbackErrors.push(`[YouTube] ${response.error || "Failed"}`);
+                    lastResponse = response;
+                }
+                catch (err) {
+                    logger.error(`YouTube fallback error: ${err}`);
+                    fallbackErrors.push(`[YouTube] ${String(err)}`);
+                    lastResponse = { success: false, error: String(err) };
                 }
             }
             if (!lastResponse.success && itemID) {

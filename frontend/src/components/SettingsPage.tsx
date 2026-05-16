@@ -15,7 +15,7 @@ import { SelectFolder, OpenConfigFolder, CheckCustomTidalAPI } from "../../wails
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { openExternal } from "@/lib/utils";
 import { ApiStatusTab } from "./ApiStatusTab";
-import { AmazonIcon, QobuzIcon, SonglinkIcon, SongstatsIcon, TidalIcon } from "./PlatformIcons";
+import { AmazonIcon, QobuzIcon, SonglinkIcon, SongstatsIcon, TidalIcon, YouTubeIcon } from "./PlatformIcons";
 interface SettingsPageProps {
     onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void;
     onResetRequest?: (resetFn: () => void) => void;
@@ -595,6 +595,20 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                         Allow Quality Fallback (16-bit)
                       </Label>
                   </div>)}
+
+                {tempSettings.downloader === "auto" && (
+                  <div className="flex items-center gap-3 pt-2">
+                    <Switch id="youtube-fallback" checked={tempSettings.youtubeFallback ?? false} onCheckedChange={(checked) => setTempSettings((prev) => ({
+                      ...prev,
+                      youtubeFallback: checked,
+                    }))}/>
+                    <Label htmlFor="youtube-fallback" className="text-sm font-normal cursor-pointer flex items-center gap-1.5">
+                      <YouTubeIcon className="w-4 h-4"/>
+                      YouTube Fallback
+                      <span className="text-muted-foreground">(MP3 320kbps)</span>
+                    </Label>
+                  </div>
+                )}
 
                 {(tempSettings.downloader === "auto" || tempSettings.downloader === "tidal") && (<div className="space-y-2 pt-2">
                     <Label>Custom Instance</Label>
