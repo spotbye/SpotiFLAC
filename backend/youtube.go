@@ -378,7 +378,7 @@ func (y *YouTubeDownloader) Download(
 	}
 
 	fmt.Println("[YouTube] Embedding Spotify metadata...")
-	if embedErr := EmbedMetadataToConvertedFile(finalPath, metadata, coverPath); embedErr != nil {
+	if embedErr := embedMetadataToMP3WithFFmpeg(finalPath, metadata, coverPath); embedErr != nil {
 		fmt.Printf("[YouTube] Warning: metadata embed failed: %v\n", embedErr)
 	} else {
 		fmt.Println("[YouTube] Metadata embedded successfully")

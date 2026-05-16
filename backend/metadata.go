@@ -1140,6 +1140,119 @@ func embedMetadataToMP3(filePath string, metadata Metadata, coverPath string) er
 	return nil
 }
 
+func embedMetadataToMP3WithFFmpeg(filePath string, metadata Metadata, coverPath string) error {
+	ffmpegPath, err := GetFFmpegPath()
+	if err != nil {
+		return fmt.Errorf("ffmpeg not found: %w", err)
+	}
+
+	separator := resolveMetadataSeparator(metadata.Separator)
+
+	args := []string{"-i", filePath}
+
+	hasCover := coverPath != "" && fileExists(coverPath)
+	if hasCover {
+		args = append(args, "-i", coverPath)
+		args = append(args, "-map", "0:a", "-map", "1:v")
+		args = append(args, "-c:a", "copy", "-c:v", "copy")
+		args = append(args, "-metadata:s:v", "title=Album cover", "-metadata:s:v", "comment=Cover (front)")
+	} else {
+		args = append(args, "-map", "0:a", "-c:a", "copy")
+	}
+
+	args = append(args, "-id3v2_version", "3", "-write_id3v1", "0")
+
+	if metadata.Title != "" {
+		args = append(args, "-metadata", "title="+metadata.Title)
+	}
+	artistText := joinMultiValueText(SplitArtistCredits(metadata.Artist, separator), separator, false)
+	if artistText == "" {
+		artistText = strings.TrimSpace(metadata.Artist)
+	}
+	if artistText != "" {
+		args = append(args, "-metadata", "artist="+artistText)
+	}
+	if metadata.Album != "" {
+		args = append(args, "-metadata", "album="+metadata.Album)
+	}
+	albumArtistText := joinMultiValueText(SplitArtistCredits(metadata.AlbumArtist, separator), separator, false)
+	if albumArtistText == "" {
+		albumArtistText = strings.TrimSpace(metadata.AlbumArtist)
+	}
+	if albumArtistText != "" {
+		args = append(args, "-metadata", "album_artist="+albumArtistText)
+	}
+	if metadata.Date != "" {
+		year := metadata.Date
+		if len(year) >= 4 {
+			year = year[:4]
+		}
+		args = append(args, "-metadata", "date="+year)
+	}
+	if metadata.TrackNumber > 0 {
+		trackStr := strconv.Itoa(metadata.TrackNumber)
+		if metadata.TotalTracks > 0 {
+			trackStr = fmt.Sprintf("%d/%d", metadata.TrackNumber, metadata.TotalTracks)
+		}
+		args = append(args, "-metadata", "track="+trackStr)
+	}
+	if metadata.DiscNumber > 0 {
+		discStr := strconv.Itoa(metadata.DiscNumber)
+		if metadata.TotalDiscs > 0 {
+			discStr = fmt.Sprintf("%d/%d", metadata.DiscNumber, metadata.TotalDiscs)
+		}
+		args = append(args, "-metadata", "disc="+discStr)
+	}
+	if metadata.Copyright != "" {
+		args = append(args, "-metadata", "copyright="+metadata.Copyright)
+	}
+	if metadata.Publisher != "" {
+		args = append(args, "-metadata", "publisher="+metadata.Publisher)
+	}
+	composerText := joinMultiValueText(SplitArtistCredits(metadata.Composer, separator), separator, false)
+	if composerText == "" {
+		composerText = strings.TrimSpace(metadata.Composer)
+	}
+	if composerText != "" {
+		args = append(args, "-metadata", "composer="+composerText)
+	}
+	if metadata.ISRC != "" {
+		args = append(args, "-metadata", "TSRC="+metadata.ISRC)
+	}
+	genreText := joinMultiValueText(SplitMetadataValues(metadata.Genre, separator), separator, false)
+	if genreText == "" {
+		genreText = strings.TrimSpace(metadata.Genre)
+	}
+	if genreText != "" {
+		args = append(args, "-metadata", "genre="+genreText)
+	}
+	if comment := resolveMetadataComment(metadata); comment != "" {
+		args = append(args, "-metadata", "comment="+comment)
+	}
+
+	tmpOutputFile := filePath + ".tmp.mp3"
+	defer func() {
+		if _, err := os.Stat(tmpOutputFile); err == nil {
+			os.Remove(tmpOutputFile)
+		}
+	}()
+
+	args = append(args, "-y", tmpOutputFile)
+
+	cmd := exec.Command(ffmpegPath, args...)
+	setHideWindow(cmd)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ffmpeg failed to embed MP3 metadata: %s - %w", string(output), err)
+	}
+
+	if err := os.Rename(tmpOutputFile, filePath); err != nil {
+		return fmt.Errorf("failed to replace original MP3 file: %w", err)
+	}
+
+	return nil
+}
+
 func embedMetadataToM4A(filePath string, metadata Metadata, coverPath string) error {
 	ffmpegPath, err := GetFFmpegPath()
 	if err != nil {
