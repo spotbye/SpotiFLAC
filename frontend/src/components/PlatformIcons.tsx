@@ -101,6 +101,12 @@ export function SonglinkIcon({ className = "w-4 h-4" }: PlatformIconProps) {
 export function SongstatsIcon({ className = "w-4 h-4" }: PlatformIconProps) {
     return <PlatformIcon src={songstatsIcon} alt="Songstats" className={className} defaultClassName="rounded-[3px]"/>;
 }
+export function YouTubeIcon({ className = "w-4 h-4" }: PlatformIconProps) {
+    return <svg viewBox="0 0 24 24" className={className} xmlns="http://www.w3.org/2000/svg">
+        <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8z" fill="#FF0000"/>
+        <polygon points="9.6,15.6 15.8,12 9.6,8.4" fill="white"/>
+    </svg>;
+}
 export function TidalAvailabilityIcon({ className = "w-4 h-4" }: PlatformIconProps) {
     return <svg viewBox="0 0 24 24" className={`${className} fill-current`}>
         <path d="M4.022 4.5 0 8.516l3.997 3.99 3.997-3.984L4.022 4.5Zm7.956 0L7.994 8.522l4.003 3.984L16 8.484 11.978 4.5Zm8.007 0L24 8.528l-4.003 3.978L16 8.484 19.985 4.5Z"></path>

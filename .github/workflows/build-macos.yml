@@ -1,0 +1,61 @@
+name: Build macOS DMG
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install pnpm dependencies
+        working-directory: frontend
+        run: pnpm install
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build macOS (arm64)
+        run: wails build -platform darwin/arm64
+
+      - name: Build macOS (amd64)
+        run: wails build -platform darwin/amd64
+
+      - name: Create universal binary
+        run: |
+          lipo -create -output build/bin/SpotiFLAC \
+            build/bin/SpotiFLAC-arm64 \
+            build/bin/SpotiFLAC-amd64 || true
+
+      - name: Create DMG
+        run: |
+          mkdir -p dist-mac
+          cp -r build/bin/SpotiFLAC.app dist-mac/ 2>/dev/null || \
+            cp build/bin/SpotiFLAC dist-mac/
+          hdiutil create -volname "SpotiFLAC" \
+            -srcfolder dist-mac \
+            -ov -format UDZO \
+            build/bin/SpotiFLAC.dmg
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotiFLAC-macOS
+          path: build/bin/SpotiFLAC.dmg

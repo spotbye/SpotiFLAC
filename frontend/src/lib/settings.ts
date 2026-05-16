@@ -55,6 +55,7 @@ export interface Settings {
     embedGenre: boolean;
     redownloadWithSuffix: boolean;
     separator: "comma" | "semicolon";
+    youtubeFallback: boolean;
 }
 export const FOLDER_PRESETS: Record<FolderPreset, {
     label: string;
@@ -198,6 +199,7 @@ export const DEFAULT_SETTINGS: Settings = {
     embedGenre: false,
     redownloadWithSuffix: false,
     separator: "semicolon",
+    youtubeFallback: false,
 };
 export const FONT_OPTIONS: FontOption[] = [
     {
@@ -623,6 +625,9 @@ function normalizeSettingsPayload(settings: SettingsPayload): SettingsPayload {
     }
     if (!("redownloadWithSuffix" in normalized)) {
         normalized.redownloadWithSuffix = false;
+    }
+    if (!("youtubeFallback" in normalized)) {
+        normalized.youtubeFallback = false;
     }
     normalized.operatingSystem = detectOS();
     const normalizedCustomFonts = normalizeCustomFonts(normalized.customFonts);
