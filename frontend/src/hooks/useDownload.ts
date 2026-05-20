@@ -155,7 +155,7 @@ export function useDownload(region: string) {
         }
         const serviceForCheck = service === "auto" ? "flac" : (service === "tidal" ? "flac" : (service === "qobuz" ? "flac" : "flac"));
         let fileExists = false;
-        if (trackName && artistName) {
+        if (trackName && artistName && settings.existingFileCheckMode !== "none") {
             try {
                 const checkRequest: CheckFileExistenceRequest = {
                     spotify_id: spotifyId || id,
@@ -781,7 +781,9 @@ export function useDownload(region: string) {
                 audio_format: audioFormat,
             };
         });
-        const existenceResults = await CheckFilesExistence(outputDir, settings.downloadPath, existenceChecks);
+        const existenceResults = settings.existingFileCheckMode !== "none"
+            ? await CheckFilesExistence(outputDir, settings.downloadPath, existenceChecks)
+            : [];
         const existingSpotifyIDs = new Set<string>();
         const existingFilePaths = new Map<string, string>();
         const finalFilePaths = new Map<string, string>();
@@ -956,7 +958,9 @@ export function useDownload(region: string) {
                 audio_format: audioFormat,
             };
         });
-        const existenceResults = await CheckFilesExistence(outputDir, settings.downloadPath, existenceChecks);
+        const existenceResults = settings.existingFileCheckMode !== "none"
+            ? await CheckFilesExistence(outputDir, settings.downloadPath, existenceChecks)
+            : [];
         const finalFilePaths: string[] = new Array(tracksWithId.length).fill("");
         const existingSpotifyIDs = new Set<string>();
         const existingFilePaths = new Map<string, string>();

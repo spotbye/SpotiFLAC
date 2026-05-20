@@ -16,7 +16,7 @@ export type FontOption = {
 };
 export type FolderPreset = "none" | "artist" | "album" | "year-album" | "year-artist-album" | "artist-album" | "artist-year-album" | "artist-year-nested-album" | "album-artist" | "album-artist-album" | "album-artist-year-album" | "album-artist-year-nested-album" | "year" | "year-artist" | "custom";
 export type FilenamePreset = "title" | "title-artist" | "artist-title" | "track-title" | "track-title-artist" | "track-artist-title" | "title-album-artist" | "track-title-album-artist" | "artist-album-title" | "track-dash-title" | "disc-track-title" | "disc-track-title-artist" | "custom";
-export type ExistingFileCheckMode = "filename" | "isrc";
+export type ExistingFileCheckMode = "none" | "filename" | "isrc";
 export interface Settings {
     downloadPath: string;
     downloader: "auto" | "tidal" | "qobuz" | "amazon";
@@ -550,6 +550,8 @@ function normalizeDownloader(value: unknown, allowTidal: boolean): Settings["dow
 }
 function normalizeExistingFileCheckMode(mode: unknown): ExistingFileCheckMode {
     switch (typeof mode === "string" ? mode.trim().toLowerCase() : "") {
+        case "none":
+            return "none";
         case "isrc":
         case "upc":
             return "isrc";
