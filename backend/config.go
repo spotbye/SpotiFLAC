@@ -196,6 +196,8 @@ func normalizeExistingFileCheckMode(value string) string {
 	switch strings.TrimSpace(strings.ToLower(value)) {
 	case "isrc", "upc":
 		return "isrc"
+	case "hybrid":
+		return "hybrid"
 	default:
 		return "filename"
 	}

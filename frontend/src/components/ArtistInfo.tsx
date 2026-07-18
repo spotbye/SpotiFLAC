@@ -531,7 +531,7 @@ export function ArtistInfo({ artistInfo, albumList, trackList, searchQuery, sort
                   {formatAlbumFilterLabel(filter)}
                 </Button>))}
             </div>)}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,10rem)] gap-4">
             {filteredAlbums.map((album, albumIndex) => {
                 const albumTracks = trackList.filter(t => t.album_id === album.id);
                 const tracksWithId = albumTracks.filter(t => t.spotify_id);
@@ -584,7 +584,7 @@ export function ArtistInfo({ artistInfo, albumList, trackList, searchQuery, sort
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  {album.images && (<img src={album.images} alt={album.name} className="w-full aspect-square object-cover rounded-md shadow-md transition-shadow group-hover:shadow-xl"/>)}
+                  {album.images && (<img src={album.images} alt={album.name} className="h-40 w-40 object-cover rounded-md shadow-md transition-shadow group-hover:shadow-xl"/>)}
                   <div className="absolute bottom-2 right-2">
                     <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-black/60 text-white backdrop-blur-[2px]">
                         {album.album_type}

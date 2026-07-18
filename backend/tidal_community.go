@@ -20,6 +20,8 @@ var tidalCommunityClient = &http.Client{Timeout: 60 * time.Second}
 
 func mapTidalQualityToCommunity(quality string) string {
 	switch strings.ToUpper(strings.TrimSpace(quality)) {
+	case "ATMOS", "DOLBY", "EAC3", "EAC3_JOC":
+		return "atmos"
 	case "HI_RES_LOSSLESS", "HI_RES", "24":
 		return "24"
 	default:

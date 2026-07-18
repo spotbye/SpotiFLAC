@@ -3,16 +3,14 @@ import { openExternal } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from "@/components/ui/card";
 import { Star, GitFork, Clock, Download, Info } from "lucide-react";
 import AudioTTSProIcon from "@/assets/audiotts-pro.webp";
-import ChatGPTTTSIcon from "@/assets/chatgpt-tts.webp";
 import XIcon from "@/assets/x.webp";
 import SpotubeDLIcon from "@/assets/icons/spotubedl.svg";
 import XBatchDLIcon from "@/assets/icons/xbatchdl.svg";
 import SpotiFLACNextIcon from "@/assets/icons/next.svg";
 import { langColors } from "@/assets/github-lang-colors";
 const browserExtensionItems = [
-    { icon: AudioTTSProIcon, label: "AudioTTS Pro", alt: "AudioTTS Pro" },
-    { icon: ChatGPTTTSIcon, label: "ChatGPT TTS", alt: "ChatGPT TTS" },
     { icon: XIcon, label: "Twitter/X Media Batch Downloader", alt: "Twitter/X Media Batch Downloader" },
+    { icon: AudioTTSProIcon, label: "AudioTTS Pro", alt: "AudioTTS Pro" },
 ];
 const projectCardClass = "cursor-pointer gap-3 py-5 transition-colors hover:bg-muted/50 dark:hover:bg-accent/50";
 const projectCardHeaderClass = "px-5 gap-1.5";
@@ -227,7 +225,7 @@ export function OtherProjects() {
                         Note
                       </div>
                       <p className="text-xs leading-snug text-sky-700 dark:text-sky-300">
-                        This project released as a token of appreciation for those who have supported SpotiFLAC through Ko-fi, Patreon, or crypto. It’s not a paid product, but it’s shared privately through a supporter-only post.
+                        This project is shared as a thank-you to those who support SpotiFLAC. It is not a paid product or something being sold, but a complimentary gift available through a private supporter post.
                       </p>
                     </div>
                   </CardContent>)}

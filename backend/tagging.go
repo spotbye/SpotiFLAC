@@ -13,6 +13,23 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
+type MetadataTagSelection struct {
+	Title       bool
+	Artist      bool
+	Album       bool
+	AlbumArtist bool
+	Date        bool
+	TrackNumber bool
+	DiscNumber  bool
+	Genre       bool
+	Composer    bool
+	Copyright   bool
+	Label       bool
+	ISRC        bool
+	UPC         bool
+	Comment     bool
+}
+
 func TagFile(filePath string, metadata Metadata, coverPath string) error {
 	filePath = norm.NFC.String(filePath)
 
@@ -33,6 +50,50 @@ func TagFile(filePath string, metadata Metadata, coverPath string) error {
 		fmt.Printf("Warning: failed to apply container-specific tags: %v\n", err)
 	}
 
+	return nil
+}
+
+func ApplyMetadataTagSelection(filePath string, selection MetadataTagSelection) error {
+	filePath = norm.NFC.String(filePath)
+	tags, err := taglib.ReadTags(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read tags: %w", err)
+	}
+
+	disabled := make(map[string]struct{})
+	addDisabled := func(enabled bool, keys ...string) {
+		if enabled {
+			return
+		}
+		for _, key := range keys {
+			disabled[strings.ToUpper(strings.TrimSpace(key))] = struct{}{}
+		}
+	}
+	addDisabled(selection.Title, taglib.Title)
+	addDisabled(selection.Artist, taglib.Artist)
+	addDisabled(selection.Album, taglib.Album)
+	addDisabled(selection.AlbumArtist, taglib.AlbumArtist, "ALBUM ARTIST")
+	addDisabled(selection.Date, taglib.Date, taglib.ReleaseDate, "YEAR", "ORIGINALDATE", "ORIGINALYEAR")
+	addDisabled(selection.TrackNumber, taglib.TrackNumber, "TRACK", "TRACKTOTAL", "TOTALTRACKS")
+	addDisabled(selection.DiscNumber, taglib.DiscNumber, "DISC", "DISCTOTAL", "TOTALDISCS", "PART", "PARTNUMBER")
+	addDisabled(selection.Genre, taglib.Genre)
+	addDisabled(selection.Composer, taglib.Composer)
+	addDisabled(selection.Copyright, taglib.Copyright)
+	addDisabled(selection.Label, taglib.Label, "PUBLISHER", "ORGANIZATION")
+	addDisabled(selection.ISRC, taglib.ISRC)
+	addDisabled(selection.UPC, preferredUPCTagKey, "UPC", "BARCODE")
+	addDisabled(selection.Comment, taglib.Comment)
+	if len(disabled) == 0 {
+		return nil
+	}
+	for key := range tags {
+		if _, remove := disabled[strings.ToUpper(strings.TrimSpace(key))]; remove {
+			delete(tags, key)
+		}
+	}
+	if err := taglib.WriteTags(filePath, tags, taglib.Clear); err != nil {
+		return fmt.Errorf("failed to write filtered tags: %w", err)
+	}
 	return nil
 }
 

@@ -11,6 +11,10 @@ function isCooldownMessage(message?: string): boolean {
     const lower = message.toLowerCase();
     return lower.includes("short break") || lower.includes("scheduled") || lower.includes("cooldown");
 }
+function getCooldownFailure(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return isCooldownMessage(message) ? { success: false, error: message } : null;
+}
 function formatSourceSuffix(response: {
     source_url?: string;
     source_label?: string;
@@ -77,14 +81,22 @@ async function resolveTemplateISRC(settings: {
         return "";
     }
 }
-function getTidalAudioFormat(settings: any, mode: "single" | "auto"): "LOSSLESS" | "HI_RES_LOSSLESS" {
+function getTidalAudioFormat(settings: any, mode: "single" | "auto"): "LOSSLESS" | "HI_RES_LOSSLESS" | "ATMOS" {
     if (mode === "auto") {
+        if (settings.autoQuality === "atmos")
+            return "ATMOS";
         return (settings.autoQuality || "24") === "24" ? "HI_RES_LOSSLESS" : "LOSSLESS";
     }
     return settings.tidalQuality || "LOSSLESS";
 }
 function shouldFetchStreamingURLs(order: string[]): boolean {
     return order.includes("amazon") || order.includes("tidal");
+}
+function getCustomInstanceFields(tidalApi?: string, qobuzApi?: string) {
+    return {
+        ...(tidalApi ? { tidal_api_url: tidalApi } : {}),
+        ...(qobuzApi ? { qobuz_api_url: qobuzApi } : {}),
+    };
 }
 export function useDownload() {
     const [downloadProgress, setDownloadProgress] = useState<number>(0);
@@ -157,12 +169,14 @@ export function useDownload() {
         const displayAlbumArtist = settings.useFirstArtistOnly && albumArtist
             ? getFirstArtist(albumArtist)
             : albumArtist;
+        const namingArtist = artistName ? getFirstArtist(artistName) : artistName;
+        const namingAlbumArtist = albumArtist ? getFirstArtist(albumArtist) : albumArtist;
         const resolvedTemplateISRC = await resolveTemplateISRC(settings, spotifyId || id);
         const templateData: TemplateData = {
-            artist: displayArtist?.replace(/\//g, placeholder),
+            artist: namingArtist?.replace(/\//g, placeholder),
             artists: artistName?.replace(/\//g, placeholder),
             album: albumName?.replace(/\//g, placeholder),
-            album_artist: displayAlbumArtist?.replace(/\//g, placeholder) || displayArtist?.replace(/\//g, placeholder),
+            album_artist: namingAlbumArtist?.replace(/\//g, placeholder) || namingArtist?.replace(/\//g, placeholder),
             title: trackName?.replace(/\//g, placeholder),
             isrc: resolvedTemplateISRC?.replace(/\//g, placeholder),
             track: trackNumberForTemplate,
@@ -244,6 +258,7 @@ export function useDownload() {
             let lastResponse: any = { success: false, error: "No matching services found" };
             const fallbackErrors: string[] = [];
             const tidalQuality = getTidalAudioFormat(settings, "auto");
+            const isAtmos = settings.autoQuality === "atmos";
             const is24Bit = (settings.autoQuality || "24") === "24";
             const qobuzQuality = is24Bit ? "27" : "6";
             for (const s of order) {
@@ -274,7 +289,7 @@ export function useDownload() {
                             duration: durationSeconds,
                             item_id: itemID,
                             audio_format: tidalQuality,
-                            tidal_api_url: customTidalApi,
+                            ...getCustomInstanceFields(customTidalApi),
                             spotify_track_number: spotifyTrackNumber,
                             spotify_disc_number: spotifyDiscNumber,
                             spotify_total_tracks: spotifyTotalTracks,
@@ -292,12 +307,17 @@ export function useDownload() {
                             return response;
                         }
                         const errMsg = response.error || response.message || "Failed";
+                        if (isCooldownMessage(errMsg))
+                            return response;
                         fallbackErrors.push(`[Tidal] ${errMsg}`);
                         lastResponse = response;
                         logger.warning(`Tidal failed, trying next...`);
                     }
                     catch (err) {
                         logger.error(`Tidal error: ${err}`);
+                        const cooldownFailure = getCooldownFailure(err);
+                        if (cooldownFailure)
+                            return cooldownFailure;
                         fallbackErrors.push(`[Tidal] ${String(err)}`);
                         lastResponse = { success: false, error: String(err) };
                     }
@@ -327,7 +347,7 @@ export function useDownload() {
                             embed_max_quality_cover: settings.embedMaxQualityCover,
                             service_url: streamingURLs.amazon_url,
                             item_id: itemID,
-                            audio_format: is24Bit ? "24" : "16",
+                            audio_format: isAtmos ? "atmos" : (is24Bit ? "24" : "16"),
                             spotify_track_number: spotifyTrackNumber,
                             spotify_disc_number: spotifyDiscNumber,
                             spotify_total_tracks: spotifyTotalTracks,
@@ -344,12 +364,17 @@ export function useDownload() {
                             return response;
                         }
                         const errMsg = response.error || response.message || "Failed";
+                        if (isCooldownMessage(errMsg))
+                            return response;
                         fallbackErrors.push(`[Amazon] ${errMsg}`);
                         lastResponse = response;
                         logger.warning(`amazon failed, trying next...`);
                     }
                     catch (err) {
                         logger.error(`amazon error: ${err}`);
+                        const cooldownFailure = getCooldownFailure(err);
+                        if (cooldownFailure)
+                            return cooldownFailure;
                         fallbackErrors.push(`[Amazon] ${String(err)}`);
                         lastResponse = { success: false, error: String(err) };
                     }
@@ -379,7 +404,7 @@ export function useDownload() {
                             embed_max_quality_cover: settings.embedMaxQualityCover,
                             item_id: itemID,
                             audio_format: qobuzQuality,
-                            qobuz_api_url: customQobuzApi,
+                            ...getCustomInstanceFields(undefined, customQobuzApi),
                             spotify_track_number: spotifyTrackNumber,
                             spotify_disc_number: spotifyDiscNumber,
                             spotify_total_tracks: spotifyTotalTracks,
@@ -396,12 +421,17 @@ export function useDownload() {
                             return response;
                         }
                         const errMsg = response.error || response.message || "Failed";
+                        if (isCooldownMessage(errMsg))
+                            return response;
                         fallbackErrors.push(`[Qobuz] ${errMsg}`);
                         lastResponse = response;
                         logger.warning(`qobuz failed, trying next...`);
                     }
                     catch (err) {
                         logger.error(`qobuz error: ${err}`);
+                        const cooldownFailure = getCooldownFailure(err);
+                        if (cooldownFailure)
+                            return cooldownFailure;
                         fallbackErrors.push(`[Qobuz] ${String(err)}`);
                         lastResponse = { success: false, error: String(err) };
                     }
@@ -452,8 +482,7 @@ export function useDownload() {
             duration: durationSecondsForFallback,
             item_id: itemID,
             audio_format: audioFormat,
-            tidal_api_url: service === "tidal" ? customTidalApi : undefined,
-            qobuz_api_url: service === "qobuz" ? customQobuzApi : undefined,
+            ...getCustomInstanceFields(service === "tidal" ? customTidalApi : undefined, service === "qobuz" ? customQobuzApi : undefined),
             spotify_track_number: spotifyTrackNumber,
             spotify_disc_number: spotifyDiscNumber,
             spotify_total_tracks: spotifyTotalTracks,
@@ -520,12 +549,14 @@ export function useDownload() {
         const displayAlbumArtist = settings.useFirstArtistOnly && albumArtist
             ? getFirstArtist(albumArtist)
             : albumArtist;
+        const namingArtist = artistName ? getFirstArtist(artistName) : artistName;
+        const namingAlbumArtist = albumArtist ? getFirstArtist(albumArtist) : albumArtist;
         const resolvedTemplateISRC = await resolveTemplateISRC(settings, spotifyId);
         const templateData: TemplateData = {
-            artist: displayArtist?.replace(/\//g, placeholder),
+            artist: namingArtist?.replace(/\//g, placeholder),
             artists: artistName?.replace(/\//g, placeholder),
             album: albumName?.replace(/\//g, placeholder),
-            album_artist: displayAlbumArtist?.replace(/\//g, placeholder) || displayArtist?.replace(/\//g, placeholder),
+            album_artist: namingAlbumArtist?.replace(/\//g, placeholder) || namingArtist?.replace(/\//g, placeholder),
             title: trackName?.replace(/\//g, placeholder),
             isrc: resolvedTemplateISRC?.replace(/\//g, placeholder),
             track: trackNumberForTemplate,
@@ -567,6 +598,7 @@ export function useDownload() {
             let lastResponse: any = { success: false, error: "No matching services found" };
             const fallbackErrors: string[] = [];
             const tidalQuality = getTidalAudioFormat(settings, "auto");
+            const isAtmos = settings.autoQuality === "atmos";
             const is24Bit = (settings.autoQuality || "24") === "24";
             const qobuzQuality = is24Bit ? "27" : "6";
             for (const s of order) {
@@ -597,7 +629,7 @@ export function useDownload() {
                             duration: durationSeconds,
                             item_id: itemID,
                             audio_format: tidalQuality,
-                            tidal_api_url: customTidalApi,
+                            ...getCustomInstanceFields(customTidalApi),
                             spotify_track_number: spotifyTrackNumber,
                             spotify_disc_number: spotifyDiscNumber,
                             spotify_total_tracks: spotifyTotalTracks,
@@ -615,12 +647,17 @@ export function useDownload() {
                             return response;
                         }
                         const errMsg = response.error || response.message || "Failed";
+                        if (isCooldownMessage(errMsg))
+                            return response;
                         fallbackErrors.push(`[Tidal] ${errMsg}`);
                         lastResponse = response;
                         logger.warning(`Tidal failed, trying next...`);
                     }
                     catch (err) {
                         logger.error(`Tidal error: ${err}`);
+                        const cooldownFailure = getCooldownFailure(err);
+                        if (cooldownFailure)
+                            return cooldownFailure;
                         fallbackErrors.push(`[Tidal] ${String(err)}`);
                         lastResponse = { success: false, error: String(err) };
                     }
@@ -650,6 +687,7 @@ export function useDownload() {
                             embed_max_quality_cover: settings.embedMaxQualityCover,
                             service_url: streamingURLs.amazon_url,
                             item_id: itemID,
+                            audio_format: isAtmos ? "atmos" : (is24Bit ? "24" : "16"),
                             spotify_track_number: spotifyTrackNumber,
                             spotify_disc_number: spotifyDiscNumber,
                             spotify_total_tracks: spotifyTotalTracks,
@@ -667,12 +705,17 @@ export function useDownload() {
                             return response;
                         }
                         const errMsg = response.error || response.message || "Failed";
+                        if (isCooldownMessage(errMsg))
+                            return response;
                         fallbackErrors.push(`[Amazon] ${errMsg}`);
                         lastResponse = response;
                         logger.warning(`amazon failed, trying next...`);
                     }
                     catch (err) {
                         logger.error(`amazon error: ${err}`);
+                        const cooldownFailure = getCooldownFailure(err);
+                        if (cooldownFailure)
+                            return cooldownFailure;
                         fallbackErrors.push(`[Amazon] ${String(err)}`);
                         lastResponse = { success: false, error: String(err) };
                     }
@@ -703,7 +746,7 @@ export function useDownload() {
                             duration: durationSeconds,
                             item_id: itemID,
                             audio_format: qobuzQuality,
-                            qobuz_api_url: customQobuzApi,
+                            ...getCustomInstanceFields(undefined, customQobuzApi),
                             spotify_track_number: spotifyTrackNumber,
                             spotify_disc_number: spotifyDiscNumber,
                             spotify_total_tracks: spotifyTotalTracks,
@@ -721,12 +764,17 @@ export function useDownload() {
                             return response;
                         }
                         const errMsg = response.error || response.message || "Failed";
+                        if (isCooldownMessage(errMsg))
+                            return response;
                         fallbackErrors.push(`[Qobuz] ${errMsg}`);
                         lastResponse = response;
                         logger.warning(`qobuz failed, trying next...`);
                     }
                     catch (err) {
                         logger.error(`qobuz error: ${err}`);
+                        const cooldownFailure = getCooldownFailure(err);
+                        if (cooldownFailure)
+                            return cooldownFailure;
                         fallbackErrors.push(`[Qobuz] ${String(err)}`);
                         lastResponse = { success: false, error: String(err) };
                     }
@@ -773,8 +821,7 @@ export function useDownload() {
             duration: durationSecondsForFallback,
             item_id: itemID,
             audio_format: audioFormat,
-            tidal_api_url: service === "tidal" ? customTidalApi : undefined,
-            qobuz_api_url: service === "qobuz" ? customQobuzApi : undefined,
+            ...getCustomInstanceFields(service === "tidal" ? customTidalApi : undefined, service === "qobuz" ? customQobuzApi : undefined),
             spotify_track_number: spotifyTrackNumber,
             spotify_disc_number: spotifyDiscNumber,
             spotify_total_tracks: spotifyTotalTracks,
@@ -798,7 +845,7 @@ export function useDownload() {
             return;
         }
         const settings = getSettings();
-        const displayArtist = settings.useFirstArtistOnly && artistName ? getFirstArtist(artistName) : artistName;
+        const displayArtist = artistName;
         logger.info(`starting download: ${trackName} - ${displayArtist}`);
         setDownloadingTrack(id);
         try {
@@ -869,8 +916,8 @@ export function useDownload() {
         const albumFilenameTemplate = getEffectiveAlbumFilenameTemplate(settings);
         const audioFormat = "flac";
         const existenceChecks = selectedTrackObjects.map((track, index) => {
-            const displayArtist = settings.useFirstArtistOnly && track.artists ? getFirstArtist(track.artists) : track.artists;
-            const displayAlbumArtist = settings.useFirstArtistOnly && track.album_artist ? getFirstArtist(track.album_artist) : track.album_artist;
+            const displayArtist = track.artists ? getFirstArtist(track.artists) : track.artists;
+            const displayAlbumArtist = track.album_artist ? getFirstArtist(track.album_artist) : track.album_artist;
             return {
                 spotify_id: track.spotify_id || "",
                 track_name: track.name || "",
@@ -911,7 +958,7 @@ export function useDownload() {
             if (!track)
                 continue;
             const trackID = track.spotify_id || id;
-            const displayArtist = settings.useFirstArtistOnly && track.artists ? getFirstArtist(track.artists) : track.artists;
+            const displayArtist = track.artists;
             const itemID = await AddToDownloadQueue(trackID, track.name || "", displayArtist || "", track.album_name || "");
             itemIDs.push(itemID);
             if (existingSpotifyIDs.has(trackID)) {
@@ -941,7 +988,7 @@ export function useDownload() {
             const originalIndex = selectedTracks.indexOf(id);
             const itemID = itemIDs[originalIndex];
             setDownloadingTrack(id);
-            const displayArtist = settings.useFirstArtistOnly && track.artists ? getFirstArtist(track.artists) : track.artists;
+            const displayArtist = track.artists;
             setCurrentDownloadInfo({ name: track.name, artists: displayArtist || "" });
             try {
                 const releaseYear = track.release_date?.substring(0, 4);
@@ -1040,7 +1087,7 @@ export function useDownload() {
                 const isFailed = !!errorMessage;
                 const isSkipped = existingSpotifyIDs.has(spotifyID);
                 const isSuccess = !!finalFilePaths.get(spotifyID);
-                const displayArtist = settings.useFirstArtistOnly && t.artists ? getFirstArtist(t.artists) : t.artists;
+                const displayArtist = t.artists;
                 if (isFailed) {
                     failedCount++;
                     logsToExport.push(`${failedCount}. ${t.name} - ${displayArtist}${t.album_name ? ` (${t.album_name})` : ""}`);
@@ -1115,8 +1162,8 @@ export function useDownload() {
         const albumFilenameTemplate = getEffectiveAlbumFilenameTemplate(settings);
         const audioFormat = "flac";
         const existenceChecks = tracksWithId.map((track, index) => {
-            const displayArtist = settings.useFirstArtistOnly && track.artists ? getFirstArtist(track.artists) : track.artists;
-            const displayAlbumArtist = settings.useFirstArtistOnly && track.album_artist ? getFirstArtist(track.album_artist) : track.album_artist;
+            const displayArtist = track.artists ? getFirstArtist(track.artists) : track.artists;
+            const displayAlbumArtist = track.album_artist ? getFirstArtist(track.album_artist) : track.album_artist;
             return {
                 spotify_id: track.spotify_id || "",
                 track_name: track.name || "",
@@ -1154,7 +1201,7 @@ export function useDownload() {
         const { AddToDownloadQueue } = await import("../../wailsjs/go/main/App");
         const itemIDs: string[] = [];
         for (const track of tracksWithId) {
-            const displayArtist = settings.useFirstArtistOnly && track.artists ? getFirstArtist(track.artists) : track.artists;
+            const displayArtist = track.artists;
             const itemID = await AddToDownloadQueue(track.spotify_id || "", track.name || "", displayArtist || "", track.album_name || "");
             itemIDs.push(itemID);
             const trackID = track.spotify_id || "";
@@ -1185,7 +1232,7 @@ export function useDownload() {
             const itemID = itemIDs[originalIndex];
             const trackId = track.spotify_id || "";
             setDownloadingTrack(trackId);
-            const displayArtist = settings.useFirstArtistOnly && track.artists ? getFirstArtist(track.artists) : track.artists;
+            const displayArtist = track.artists;
             setCurrentDownloadInfo({ name: track.name || "", artists: displayArtist || "" });
             try {
                 const releaseYear = track.release_date?.substring(0, 4);
@@ -1278,7 +1325,7 @@ export function useDownload() {
                 const isFailed = !!errorMessage;
                 const isSkipped = existingSpotifyIDs.has(spotifyID);
                 const isSuccess = !!finalFilePaths[idx];
-                const displayArtist = settings.useFirstArtistOnly && t.artists ? getFirstArtist(t.artists) : t.artists;
+                const displayArtist = t.artists;
                 if (isFailed) {
                     failedCount++;
                     logsToExport.push(`${failedCount}. ${t.name} - ${displayArtist}${t.album_name ? ` (${t.album_name})` : ""}`);

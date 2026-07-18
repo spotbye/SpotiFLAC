@@ -25,6 +25,10 @@ export interface TrackMetadata {
     artists_data?: ArtistSimple[];
     isrc?: string;
     upc?: string;
+    auto_convert_audio?: boolean;
+    auto_convert_format?: "mp3" | "m4a-aac" | "m4a-alac" | "wav" | "aiff" | "opus";
+    auto_convert_bitrate?: "320k" | "256k" | "192k" | "128k";
+    auto_convert_delete_original?: boolean;
     copyright?: string;
     publisher?: string;
     plays?: string;
@@ -125,6 +129,9 @@ export interface DownloadRequest {
     qobuz_api_url?: string;
     output_dir?: string;
     audio_format?: string;
+    allow_fallback?: boolean;
+    allow_atmos_fallback?: boolean;
+    atmos_fallback_quality?: "16" | "24";
     folder_name?: string;
     filename_format?: string;
     track_number?: boolean;
@@ -151,6 +158,10 @@ export interface DownloadRequest {
     artists?: string;
     category?: string;
     upc?: string;
+    auto_resample_audio?: boolean;
+    auto_resample_sample_rate?: "44100" | "48000" | "96000" | "192000";
+    auto_resample_bit_depth?: "16" | "24";
+    auto_resample_delete_original?: boolean;
 }
 export interface DownloadResponse {
     success: boolean;
@@ -162,6 +173,8 @@ export interface DownloadResponse {
     item_id?: string;
     source_url?: string;
     source_label?: string;
+    original_file?: string;
+    converted_file?: string;
 }
 export interface HealthResponse {
     status: string;

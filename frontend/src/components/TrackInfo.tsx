@@ -42,9 +42,10 @@ interface TrackInfoProps {
         name: string;
         external_urls: string;
     }) => void;
+    onPublisherClick?: (publisher: string) => void;
     onBack?: () => void;
 }
-export function TrackInfo({ track, isDownloading, downloadingTrack, isDownloaded, isFailed, isSkipped, downloadingLyricsTrack, downloadedLyrics, failedLyrics, skippedLyrics, checkingAvailability, availability, downloadingCover, downloadedCover, failedCover, skippedCover, onDownload, onDownloadLyrics, onCheckAvailability, onDownloadCover, onOpenFolder, onAlbumClick, onArtistClick, onBack, }: TrackInfoProps) {
+export function TrackInfo({ track, isDownloading, downloadingTrack, isDownloaded, isFailed, isSkipped, downloadingLyricsTrack, downloadedLyrics, failedLyrics, skippedLyrics, checkingAvailability, availability, downloadingCover, downloadedCover, failedCover, skippedCover, onDownload, onDownloadLyrics, onCheckAvailability, onDownloadCover, onOpenFolder, onAlbumClick, onArtistClick, onPublisherClick, onBack, }: TrackInfoProps) {
     const { playPreview, loadingPreview, playingTrack } = usePreview();
     const hasAlbumClick = !!(onAlbumClick && track.album_id && track.album_url);
     const clickableArtists = buildClickableArtists(track.artists, track.artists_data, track.artist_id, track.artist_url);
@@ -99,7 +100,7 @@ export function TrackInfo({ track, isDownloading, downloadingTrack, isDownloaded
             <div className="space-y-1">
               <div>
                 <p className="text-xs text-muted-foreground">Album</p>
-                <p className="font-medium truncate">{hasAlbumClick ? (<button type="button" className="cursor-pointer rounded-sm bg-transparent p-0 text-left text-inherit hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" onClick={() => onAlbumClick?.({
+                <p className="min-w-0 truncate font-medium">{hasAlbumClick ? (<button type="button" className="block max-w-full cursor-pointer truncate rounded-sm bg-transparent p-0 text-left text-inherit hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" title={track.album_name} onClick={() => onAlbumClick?.({
                 id: track.album_id!,
                 name: track.album_name,
                 external_urls: track.album_url!,
@@ -107,21 +108,27 @@ export function TrackInfo({ track, isDownloading, downloadingTrack, isDownloaded
                     {track.album_name}
                   </button>) : (track.album_name)}</p>
               </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Release Date</p>
+                <p className="font-medium">{track.release_date}</p>
+              </div>
               {track.plays && (<div>
                 <p className="text-xs text-muted-foreground">Total Plays</p>
                 <p className="font-medium">{formatPlays(track.plays)}</p>
               </div>)}
             </div>
             <div className="space-y-1">
-              <div>
-                <p className="text-xs text-muted-foreground">Release Date</p>
-                <p className="font-medium">{track.release_date}</p>
-              </div>
               {track.copyright && (<div>
                 <p className="text-xs text-muted-foreground">Copyright</p>
                 <p className="font-medium truncate" title={track.copyright}>
                   {track.copyright}
                 </p>
+              </div>)}
+              {track.publisher && (<div>
+                <p className="text-xs text-muted-foreground">Record Label</p>
+                <button type="button" className="max-w-full cursor-pointer truncate rounded-sm bg-transparent p-0 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" title={`Search Spotify for label: ${track.publisher}`} onClick={() => onPublisherClick?.(track.publisher!)}>
+                  {track.publisher}
+                </button>
               </div>)}
             </div>
           </div>

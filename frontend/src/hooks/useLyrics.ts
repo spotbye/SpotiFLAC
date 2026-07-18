@@ -50,8 +50,8 @@ export function useLyrics() {
             let outputDir = settings.downloadPath;
             const placeholder = "__SLASH_PLACEHOLDER__";
             const yearValue = releaseDate?.substring(0, 4);
-            const displayArtist = settings.useFirstArtistOnly && artistName ? getFirstArtist(artistName) : artistName;
-            const displayAlbumArtist = settings.useFirstArtistOnly && albumArtist ? getFirstArtist(albumArtist) : albumArtist;
+            const displayArtist = artistName ? getFirstArtist(artistName) : artistName;
+            const displayAlbumArtist = albumArtist ? getFirstArtist(albumArtist) : albumArtist;
             const resolvedTemplateISRC = await resolveTemplateISRC(settings, spotifyId);
             const templateData: TemplateData = {
                 artist: displayArtist?.replace(/\//g, placeholder),
@@ -157,8 +157,8 @@ export function useLyrics() {
                 const useAlbumTrackNumber = templateUsesAlbumTrackNumber(settings);
                 const trackPosition = useAlbumTrackNumber ? (track.track_number || i + 1) : (i + 1);
                 const yearValue = track.release_date?.substring(0, 4);
-                const displayArtist = settings.useFirstArtistOnly && track.artists ? getFirstArtist(track.artists) : track.artists;
-                const displayAlbumArtist = settings.useFirstArtistOnly && track.album_artist ? getFirstArtist(track.album_artist) : track.album_artist;
+                const displayArtist = track.artists ? getFirstArtist(track.artists) : track.artists;
+                const displayAlbumArtist = track.album_artist ? getFirstArtist(track.album_artist) : track.album_artist;
                 const resolvedTemplateISRC = await resolveTemplateISRC(settings, id);
                 const templateData: TemplateData = {
                     artist: displayArtist?.replace(/\//g, placeholder),

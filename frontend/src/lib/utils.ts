@@ -46,7 +46,7 @@ export function openExternal(url: string) {
 export function getFirstArtist(artistString: string): string {
     if (!artistString)
         return artistString;
-    const delimiters = /\s*;\s*|\s+\/\s+|[,&]|\s+(?:feat\.?|ft\.?|featuring)\s+/i;
+    const delimiters = /\s*;\s*|\s+\/\s+|\s+(?:feat\.?|ft\.?|featuring)\s+/i;
     const parts = artistString.split(delimiters);
     return parts[0].trim();
 }

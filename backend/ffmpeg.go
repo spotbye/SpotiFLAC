@@ -753,6 +753,94 @@ type ConvertAudioResult struct {
 	Error      string `json:"error,omitempty"`
 }
 
+func ConvertDownloadedFile(inputFile, outputFormat, bitrate, codec string, deleteOriginal bool) (string, error) {
+	ffmpegPath, err := GetFFmpegPath()
+	if err != nil {
+		return "", fmt.Errorf("failed to get ffmpeg path: %w", err)
+	}
+	if err := ValidateExecutable(ffmpegPath); err != nil {
+		return "", fmt.Errorf("invalid ffmpeg executable: %w", err)
+	}
+
+	inputFile = norm.NFC.String(inputFile)
+	outputFormat = strings.ToLower(strings.TrimSpace(outputFormat))
+	inputExt := strings.ToLower(filepath.Ext(inputFile))
+	outputExt := "." + outputFormat
+	base := strings.TrimSuffix(filepath.Base(inputFile), inputExt)
+	finalOutput := norm.NFC.String(filepath.Join(filepath.Dir(inputFile), base+outputExt))
+	actualOutput := finalOutput
+	if strings.EqualFold(inputExt, outputExt) {
+		actualOutput = filepath.Join(filepath.Dir(inputFile), base+".autoconvert"+outputExt)
+	}
+
+	args := []string{"-i", inputFile, "-map_metadata", "-1", "-map_chapters", "-1", "-y"}
+	switch outputFormat {
+	case "mp3":
+		args = append(args, "-codec:a", "libmp3lame", "-b:a", bitrate, "-map", "0:a", "-id3v2_version", "3")
+	case "m4a":
+		if codec == "alac" {
+			args = append(args, "-codec:a", "alac", "-map", "0:a")
+		} else {
+			args = append(args, "-codec:a", "aac", "-b:a", bitrate, "-map", "0:a")
+		}
+	case "wav", "aiff":
+		pcm := "pcm_s16le"
+		if outputFormat == "aiff" {
+			pcm = "pcm_s16be"
+		}
+		if sampleFmt, _ := pcmSampleFormatForInput(inputFile); sampleFmt == "s32" {
+			if outputFormat == "aiff" {
+				pcm = "pcm_s24be"
+			} else {
+				pcm = "pcm_s24le"
+			}
+		}
+		args = append(args, "-codec:a", pcm, "-map", "0:a")
+	case "opus":
+		args = append(args, "-codec:a", "libopus", "-b:a", bitrate, "-map", "0:a")
+	default:
+		return "", fmt.Errorf("unsupported output format: %s", outputFormat)
+	}
+	args = append(args, actualOutput)
+	cmd := exec.CommandContext(ActiveDownloadContext(), ffmpegPath, args...)
+	setHideWindow(cmd)
+	if output, runErr := cmd.CombinedOutput(); runErr != nil {
+		_ = os.Remove(actualOutput)
+		return "", fmt.Errorf("conversion failed: %v - %s", runErr, output)
+	}
+
+	metadata, _ := ExtractFullMetadataFromFile(inputFile)
+	cover, _ := ExtractCoverArt(inputFile)
+	if cover != "" {
+		defer os.Remove(cover)
+	}
+	lyrics, _ := ExtractLyrics(inputFile)
+	metadata.Lyrics = lyrics
+	if err := EmbedMetadataToConvertedFile(actualOutput, metadata, cover); err != nil {
+		fmt.Printf("[Auto Convert] Warning: metadata: %v\n", err)
+	}
+	if lyrics != "" {
+		_ = EmbedLyricsOnlyUniversal(actualOutput, lyrics)
+	}
+
+	if strings.EqualFold(inputExt, outputExt) {
+		backup := filepath.Join(filepath.Dir(inputFile), base+".autoconvert-backup"+inputExt)
+		_ = os.Remove(backup)
+		if err := os.Rename(inputFile, backup); err != nil {
+			_ = os.Remove(actualOutput)
+			return "", err
+		}
+		if err := os.Rename(actualOutput, finalOutput); err != nil {
+			_ = os.Rename(backup, finalOutput)
+			return "", err
+		}
+		_ = os.Remove(backup)
+	} else if deleteOriginal {
+		_ = os.Remove(inputFile)
+	}
+	return finalOutput, nil
+}
+
 func ConvertAudio(req ConvertAudioRequest) ([]ConvertAudioResult, error) {
 	ffmpegPath, err := GetFFmpegPath()
 	if err != nil {
@@ -772,10 +860,16 @@ func ConvertAudio(req ConvertAudioRequest) ([]ConvertAudioResult, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
+	maxWorkers := min(runtime.NumCPU(), 8)
+	sem := make(chan struct{}, maxWorkers)
+
 	for i, inputFile := range req.InputFiles {
 		wg.Add(1)
 		go func(idx int, inputFile string) {
 			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
 			result := ConvertAudioResult{
 				InputFile: inputFile,

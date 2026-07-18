@@ -18,6 +18,22 @@ export type FontOption = {
 export type FolderPreset = "none" | "artist" | "album" | "year-album" | "year-artist-album" | "artist-album" | "artist-year-album" | "artist-year-nested-album" | "album-artist" | "album-artist-album" | "album-artist-year-album" | "album-artist-year-nested-album" | "year" | "year-artist" | "custom";
 export type FilenamePreset = "title" | "title-artist" | "artist-title" | "track-title" | "track-title-artist" | "track-artist-title" | "title-album-artist" | "track-title-album-artist" | "artist-album-title" | "track-dash-title" | "disc-track-title" | "disc-track-title-artist" | "custom";
 export type ExistingFileCheckMode = "filename" | "isrc";
+export interface MetadataTagToggles {
+    title: boolean;
+    artist: boolean;
+    album: boolean;
+    albumArtist: boolean;
+    date: boolean;
+    trackNumber: boolean;
+    discNumber: boolean;
+    genre: boolean;
+    composer: boolean;
+    copyright: boolean;
+    label: boolean;
+    isrc: boolean;
+    upc: boolean;
+    comment: boolean;
+}
 export interface Settings {
     downloadPath: string;
     downloader: "auto" | "tidal" | "qobuz" | "amazon";
@@ -44,12 +60,14 @@ export interface Settings {
     embedLyrics: boolean;
     embedMaxQualityCover: boolean;
     operatingSystem: "Windows" | "linux/MacOS";
-    tidalQuality: "LOSSLESS" | "HI_RES_LOSSLESS";
+    tidalQuality: "LOSSLESS" | "HI_RES_LOSSLESS" | "ATMOS";
     qobuzQuality: "6" | "7" | "27";
     amazonQuality: "16" | "24" | "atmos";
     autoOrder: "tidal-qobuz-amazon" | "tidal-amazon-qobuz" | "qobuz-tidal-amazon" | "qobuz-amazon-tidal" | "amazon-tidal-qobuz" | "amazon-qobuz-tidal" | string;
-    autoQuality: "16" | "24";
+    autoQuality: "16" | "24" | "atmos";
     allowFallback: boolean;
+    allowAtmosFallback: boolean;
+    atmosFallbackQuality: "16" | "24";
     createPlaylistFolder: boolean;
     playlistOwnerFolderName: boolean;
     createM3u8File: boolean;
@@ -58,11 +76,20 @@ export interface Settings {
     exportLogsOnlyFailed: boolean;
     previewVolume: number;
     existingFileCheckMode: ExistingFileCheckMode;
+    autoConvertAudio: boolean;
+    autoConvertFormat: "mp3" | "m4a-aac" | "m4a-alac" | "wav" | "aiff" | "opus";
+    autoConvertBitrate: "320k" | "256k" | "192k" | "128k";
+    autoConvertDeleteOriginal: boolean;
+    autoResampleAudio: boolean;
+    autoResampleSampleRate: "44100" | "48000" | "96000" | "192000";
+    autoResampleBitDepth: "16" | "24";
+    autoResampleDeleteOriginal: boolean;
     useFirstArtistOnly: boolean;
     useSingleGenre: boolean;
     embedGenre: boolean;
     redownloadWithSuffix: boolean;
     separator: "comma" | "semicolon";
+    metadataTags: MetadataTagToggles;
 }
 export const FOLDER_PRESETS: Record<FolderPreset, {
     label: string;
@@ -216,6 +243,8 @@ export const DEFAULT_SETTINGS: Settings = {
     autoOrder: "tidal-qobuz-amazon",
     autoQuality: "16",
     allowFallback: true,
+    allowAtmosFallback: true,
+    atmosFallbackQuality: "24",
     createPlaylistFolder: true,
     playlistOwnerFolderName: false,
     createM3u8File: false,
@@ -224,11 +253,35 @@ export const DEFAULT_SETTINGS: Settings = {
     exportLogsOnlyFailed: false,
     previewVolume: 100,
     existingFileCheckMode: "filename",
+    autoConvertAudio: false,
+    autoConvertFormat: "mp3",
+    autoConvertBitrate: "320k",
+    autoConvertDeleteOriginal: false,
+    autoResampleAudio: false,
+    autoResampleSampleRate: "44100",
+    autoResampleBitDepth: "16",
+    autoResampleDeleteOriginal: false,
     useFirstArtistOnly: false,
     useSingleGenre: false,
     embedGenre: false,
     redownloadWithSuffix: true,
     separator: "semicolon",
+    metadataTags: {
+        title: true,
+        artist: true,
+        album: true,
+        albumArtist: true,
+        date: true,
+        trackNumber: true,
+        discNumber: true,
+        genre: true,
+        composer: true,
+        copyright: true,
+        label: true,
+        isrc: true,
+        upc: true,
+        comment: true,
+    },
 };
 export const FONT_OPTIONS: FontOption[] = [
     {
@@ -652,12 +705,24 @@ function normalizeSettingsPayload(settings: SettingsPayload): SettingsPayload {
     if (!("autoQuality" in normalized)) {
         normalized.autoQuality = "16";
     }
+    if (normalized.autoQuality !== "16" && normalized.autoQuality !== "24" && normalized.autoQuality !== "atmos") {
+        normalized.autoQuality = "16";
+    }
+    if (normalized.autoQuality === "atmos" && sanitizeAutoOrder(normalized.autoOrder).includes("qobuz")) {
+        normalized.autoQuality = "24";
+    }
     normalized.customTidalApi = normalizeCustomTidalApi(normalized.customTidalApi);
     normalized.customQobuzApi = normalizeCustomQobuzApi(normalized.customQobuzApi);
     normalized.downloader = normalizeDownloader(normalized.downloader);
     normalized.autoOrder = sanitizeAutoOrder(normalized.autoOrder);
     if (!("allowFallback" in normalized)) {
         normalized.allowFallback = true;
+    }
+    if (!("allowAtmosFallback" in normalized)) {
+        normalized.allowAtmosFallback = true;
+    }
+    if (normalized.atmosFallbackQuality !== "16" && normalized.atmosFallbackQuality !== "24") {
+        normalized.atmosFallbackQuality = "24";
     }
     if (!("linkResolver" in normalized)) {
         normalized.linkResolver = "songlink";
@@ -691,6 +756,16 @@ function normalizeSettingsPayload(settings: SettingsPayload): SettingsPayload {
     if (!("redownloadWithSuffix" in normalized)) {
         normalized.redownloadWithSuffix = false;
     }
+    const metadataTags: MetadataTagToggles = { ...DEFAULT_SETTINGS.metadataTags };
+    if (normalized.metadataTags && typeof normalized.metadataTags === "object") {
+        const rawTags = normalized.metadataTags as Partial<MetadataTagToggles>;
+        for (const key of Object.keys(metadataTags) as Array<keyof MetadataTagToggles>) {
+            if (typeof rawTags[key] === "boolean") {
+                metadataTags[key] = rawTags[key];
+            }
+        }
+    }
+    normalized.metadataTags = metadataTags;
     normalized.operatingSystem = detectOS();
     const normalizedCustomFonts = normalizeCustomFonts(normalized.customFonts);
     normalized.customFonts = normalizedCustomFonts;

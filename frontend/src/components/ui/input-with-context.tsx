@@ -2,6 +2,7 @@ import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger, } from "@/components/ui/context-menu";
 import { Scissors, Copy, Clipboard, Type } from "lucide-react";
+import { ClipboardGetText, ClipboardSetText } from "../../../wailsjs/runtime/runtime";
 export interface InputWithContextProps extends React.InputHTMLAttributes<HTMLInputElement> {
     onValueChange?: (value: string) => void;
 }
@@ -20,7 +21,7 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
     };
     const checkClipboard = async () => {
         try {
-            const text = await navigator.clipboard.readText();
+            const text = await ClipboardGetText();
             setCanPaste(text.length > 0);
         }
         catch {
@@ -36,7 +37,8 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
         const selectedText = input.value.substring(start, end);
         if (selectedText) {
             try {
-                await navigator.clipboard.writeText(selectedText);
+                if (!await ClipboardSetText(selectedText))
+                    throw new Error("Wails could not write to the clipboard");
                 const newValue = input.value.substring(0, start) + input.value.substring(end);
                 input.value = newValue;
                 input.setSelectionRange(start, start);
@@ -66,7 +68,8 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
         const selectedText = input.value.substring(start, end);
         if (selectedText) {
             try {
-                await navigator.clipboard.writeText(selectedText);
+                if (!await ClipboardSetText(selectedText))
+                    throw new Error("Wails could not write to the clipboard");
                 input.focus();
             }
             catch (err) {
@@ -79,7 +82,7 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
         if (!input)
             return;
         try {
-            const text = await navigator.clipboard.readText();
+            const text = await ClipboardGetText();
             const start = input.selectionStart ?? 0;
             const end = input.selectionEnd ?? 0;
             const newValue = input.value.substring(0, start) + text + input.value.substring(end);

@@ -132,6 +132,7 @@ function App() {
     const [currentPage, setCurrentPage] = useState<PageType>("main");
     const contentScrollRef = useRef<HTMLDivElement | null>(null);
     const [spotifyUrl, setSpotifyUrl] = useState("");
+    const [smartSearchInput, setSmartSearchInput] = useState("");
     const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [sortBy, setSortBy] = useState<string>("default");
@@ -355,6 +356,7 @@ function App() {
         });
     };
     const handleHistorySelect = async (item: HistoryItem) => {
+        setSmartSearchInput(item.url);
         setSpotifyUrl(item.url);
         const updatedUrl = await metadata.handleFetchMetadata(item.url);
         if (updatedUrl) {
@@ -362,9 +364,12 @@ function App() {
         }
     };
     const handleFetchMetadata = async () => {
-        const updatedUrl = await metadata.handleFetchMetadata(spotifyUrl);
+        const requestedUrl = smartSearchInput.trim();
+        setSpotifyUrl(requestedUrl);
+        const updatedUrl = await metadata.handleFetchMetadata(requestedUrl);
         if (updatedUrl) {
             setSpotifyUrl(updatedUrl);
+            setSmartSearchInput(updatedUrl);
         }
     };
     useEffect(() => {
@@ -473,6 +478,9 @@ function App() {
                     if (artistUrl) {
                         setSpotifyUrl(artistUrl);
                     }
+                }} onPublisherClick={(publisher) => {
+                    metadata.resetMetadata();
+                    setSmartSearchInput(`label:"${publisher.replace(/"/g, '\\"')}"`);
                 }} onBack={metadata.resetMetadata}/>);
         }
         if ("album_info" in metadata.metadata) {
@@ -620,18 +628,23 @@ function App() {
                         </DialogContent>
                     </Dialog>
 
-                    <SearchBar url={spotifyUrl} loading={metadata.loading} onUrlChange={setSpotifyUrl} onFetch={handleFetchMetadata} onFetchUrl={async (url) => {
+                    <SearchBar url={smartSearchInput} loading={metadata.loading} onUrlChange={setSmartSearchInput} onFetch={handleFetchMetadata} onFetchUrl={async (url) => {
+                        setSmartSearchInput(url);
                         setSpotifyUrl(url);
                         const updatedUrl = await metadata.handleFetchMetadata(url);
                         if (updatedUrl) {
                             setSpotifyUrl(updatedUrl);
+                            setSmartSearchInput(updatedUrl);
                         }
-                    }} history={fetchHistory} onHistorySelect={handleHistorySelect} onHistoryRemove={removeFromHistory} hasResult={!!metadata.metadata} searchMode={isSearchMode} onSearchModeChange={setIsSearchMode}/>
+                    }} history={fetchHistory} onHistorySelect={handleHistorySelect} onHistoryRemove={removeFromHistory} hasResult={!!metadata.metadata} onSearchModeChange={setIsSearchMode}/>
 
                     {!isSearchMode && metadata.metadata && renderMetadata()}
                 </>);
         }
     };
+    const usesWideContent = currentPage === "main"
+        ? isSearchMode || !!metadata.metadata
+        : !["settings", "projects", "support"].includes(currentPage);
     return (<TooltipProvider>
         <div className="h-screen overflow-hidden bg-background">
             <TitleBar />
@@ -640,7 +653,7 @@ function App() {
 
             <div ref={contentScrollRef} className="fixed top-10 right-0 bottom-0 left-14 overflow-y-auto overflow-x-hidden">
                 <div className="p-4 md:p-8">
-                    <div className="max-w-4xl mx-auto space-y-6">
+                    <div className={`${usesWideContent ? "w-full" : "max-w-4xl mx-auto"} space-y-6`}>
                         {renderPage()}
                     </div>
                 </div>

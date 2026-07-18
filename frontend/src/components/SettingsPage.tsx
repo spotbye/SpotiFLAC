@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, } from "@/components/ui/toolti
 import { FolderOpen, Save, RotateCcw, Info, ArrowRight, MonitorCog, FolderCog, Router, FolderLock, Plus, Trash2, ExternalLink, PlugZap, Download, Tags, FileSignature } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { getSettings, getSettingsWithDefaults, saveSettings, resetToDefaultSettings, applyThemeMode, applyFont, getFontOptions, parseGoogleFontUrl, loadGoogleFontUrl, loadCustomFonts, saveCustomFonts, TEMPLATE_VARIABLES, DEFAULT_SETTINGS, sanitizeAutoOrder, type Settings as SettingsType, type FontFamily, type CustomFontFamily, type ExistingFileCheckMode, } from "@/lib/settings";
+import { getSettings, getSettingsWithDefaults, saveSettings, resetToDefaultSettings, applyThemeMode, applyFont, getFontOptions, parseGoogleFontUrl, loadGoogleFontUrl, loadCustomFonts, saveCustomFonts, TEMPLATE_VARIABLES, DEFAULT_SETTINGS, sanitizeAutoOrder, type Settings as SettingsType, type MetadataTagToggles, type FontFamily, type CustomFontFamily, type ExistingFileCheckMode, } from "@/lib/settings";
 import { FormatEditor } from "@/components/FormatEditor";
 import { themes, applyTheme } from "@/lib/themes";
 import { SelectFolder, OpenConfigFolder, CheckCustomTidalAPI, CheckCustomQobuzAPI } from "../../wailsjs/go/main/App";
@@ -22,6 +22,27 @@ interface SettingsPageProps {
     onResetRequest?: (resetFn: () => void) => void;
 }
 type CustomTidalApiStatus = "idle" | "checking" | "online" | "offline";
+const AUTO_CONVERT_BITRATES: SettingsType["autoConvertBitrate"][] = ["320k", "256k", "192k", "128k"];
+const METADATA_TAG_OPTIONS: Array<{
+    key: keyof MetadataTagToggles;
+    label: string;
+    example: string;
+}> = [
+    { key: "title", label: "Title", example: "Golden" },
+    { key: "artist", label: "Artist", example: "HUNTR/X / EJAE / AUDREY NUNA / REI AMI" },
+    { key: "album", label: "Album", example: "KPop Demon Hunters (Soundtrack from the Netflix Film)" },
+    { key: "albumArtist", label: "Album Artist", example: "KPop Demon Hunters Cast / HUNTR/X / Saja Boys" },
+    { key: "date", label: "Date / Year", example: "2025-06-20" },
+    { key: "trackNumber", label: "Track Number", example: "4/12" },
+    { key: "discNumber", label: "Disc Number", example: "1/1" },
+    { key: "genre", label: "Genre", example: "K-Pop" },
+    { key: "composer", label: "Composer", example: "EJAE / Mark Sonnenblick / Joong Gyu Kwak" },
+    { key: "copyright", label: "Copyright", example: "© 2025 Visva Records / Republic Records" },
+    { key: "label", label: "Label / Publisher", example: "K-Pop Demon Hunters" },
+    { key: "isrc", label: "ISRC", example: "QZ8BZ2513510" },
+    { key: "upc", label: "UPC", example: "00602478398346" },
+    { key: "comment", label: "Comment", example: "https://open.spotify.com/track/1CPZ5BxNNd0n0nF4Orb9JS" },
+];
 export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: SettingsPageProps) {
     const [savedSettings, setSavedSettings] = useState<SettingsType>(getSettings());
     const [tempSettings, setTempSettings] = useState<SettingsType>(savedSettings);
@@ -38,6 +59,11 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
     const hasUnsavedChanges = JSON.stringify(savedSettings) !== JSON.stringify(tempSettings);
     const effectiveDownloader = tempSettings.downloader;
     const effectiveAutoOrder = sanitizeAutoOrder(tempSettings.autoOrder);
+    const autoAtmosAvailable = !effectiveAutoOrder.includes("qobuz") &&
+        (effectiveAutoOrder.includes("tidal") || effectiveAutoOrder.includes("amazon"));
+    const isAtmosSelected = (effectiveDownloader === "tidal" && tempSettings.tidalQuality === "ATMOS") ||
+        (effectiveDownloader === "amazon" && tempSettings.amazonQuality === "atmos") ||
+        (effectiveDownloader === "auto" && tempSettings.autoQuality === "atmos");
     const resetToSaved = useCallback(() => {
         const freshSavedSettings = getSettings();
         flushSync(() => {
@@ -174,7 +200,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
         }
         toast.success("Font deleted");
     };
-    const handleTidalQualityChange = async (value: "LOSSLESS" | "HI_RES_LOSSLESS") => {
+    const handleTidalQualityChange = async (value: "LOSSLESS" | "HI_RES_LOSSLESS" | "ATMOS") => {
         setTempSettings((prev) => ({ ...prev, tidalQuality: value }));
     };
     const handleQobuzQualityChange = (value: "6" | "7" | "27") => {
@@ -183,7 +209,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
     const handleAmazonQualityChange = (value: "16" | "24" | "atmos") => {
         setTempSettings((prev) => ({ ...prev, amazonQuality: value }));
     };
-    const handleAutoQualityChange = async (value: "16" | "24") => {
+    const handleAutoQualityChange = async (value: "16" | "24" | "atmos") => {
         setTempSettings((prev) => ({ ...prev, autoQuality: value }));
     };
     const persistCustomTidalApi = useCallback(async (nextValue: string) => {
@@ -416,10 +442,43 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                   </Button>
                 </div>
               </div>
+
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-3">
+                  <Switch id="embed-lyrics" checked={tempSettings.embedLyrics} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, embedLyrics: checked }))}/>
+                  <Label htmlFor="embed-lyrics" className="cursor-pointer text-sm font-normal">Embed Lyrics</Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch id="embed-max-quality-cover" checked={tempSettings.embedMaxQualityCover} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, embedMaxQualityCover: checked }))}/>
+                  <Label htmlFor="embed-max-quality-cover" className="cursor-pointer text-sm font-normal">Embed Max Quality Cover</Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch id="embed-genre" checked={tempSettings.embedGenre} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, embedGenre: checked }))}/>
+                  <Label htmlFor="embed-genre" className="cursor-pointer text-sm font-normal">Embed Genre</Label>
+                </div>
+                {tempSettings.embedGenre && (<div className="flex items-center gap-3">
+                  <Switch id="use-single-genre" checked={tempSettings.useSingleGenre} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, useSingleGenre: checked }))}/>
+                  <Label htmlFor="use-single-genre" className="cursor-pointer text-sm font-normal">Use Single Genre</Label>
+                </div>)}
+                <div className="flex items-center gap-3">
+                  <Switch id="use-first-artist-only" checked={tempSettings.useFirstArtistOnly} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, useFirstArtistOnly: checked }))}/>
+                  <Label htmlFor="use-first-artist-only" className="cursor-pointer text-sm font-normal">Use First Artist Only</Label>
+                </div>
+                {!tempSettings.useFirstArtistOnly && (<div className="space-y-2">
+                  <Label className="text-sm">Artist Separator</Label>
+                  <Select value={tempSettings.separator} onValueChange={(value: "comma" | "semicolon") => setTempSettings((prev) => ({ ...prev, separator: value }))}>
+                    <SelectTrigger className="h-9 w-fit"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="comma">Comma (,)</SelectItem>
+                      <SelectItem value="semicolon">Semicolon (;)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>)}
+              </div>
             </div>
           </div>)}
 
-        {activeTab === "download" && (<div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-8 items-start">
+        {activeTab === "download" && (<div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] lg:gap-8 items-start">
             <div className="space-y-4 lg:pr-8 lg:border-r">
               <div className="space-y-2">
                 <Label htmlFor="link-resolver">Link Resolver</Label>
@@ -475,7 +534,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
 
               <div className="space-y-2">
                 <Label htmlFor="downloader">Source</Label>
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap lg:flex-nowrap">
                   <Select value={effectiveDownloader} onValueChange={(value: SettingsType["downloader"]) => setTempSettings((prev) => ({
                 ...prev,
                 downloader: value,
@@ -510,6 +569,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                       <Select value={effectiveAutoOrder} onValueChange={(value: string) => setTempSettings((prev) => ({
                     ...prev,
                     autoOrder: value,
+                    autoQuality: value.includes("qobuz") && prev.autoQuality === "atmos" ? "24" : prev.autoQuality,
                 }))}>
                         <SelectTrigger className="h-9 w-auto">
                           <SelectValue />
@@ -615,12 +675,13 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                       </Select>
 
                       <Select value={tempSettings.autoQuality || "16"} onValueChange={handleAutoQualityChange}>
-                        <SelectTrigger className="h-9 w-fit">
+                        <SelectTrigger className="h-9 w-fit shrink-0 whitespace-nowrap">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="16">16-bit/44.1kHz</SelectItem>
-                          <SelectItem value="24">24-bit/48kHz</SelectItem>
+                          <SelectItem value="24">24-bit/48kHz - 192kHz</SelectItem>
+                          {autoAtmosAvailable && (<SelectItem value="atmos">Dolby Atmos</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </>)}
@@ -631,7 +692,8 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="LOSSLESS">16-bit/44.1kHz</SelectItem>
-                          <SelectItem value="HI_RES_LOSSLESS">24-bit/48kHz</SelectItem>
+                          <SelectItem value="HI_RES_LOSSLESS">24-bit/48kHz - 192kHz</SelectItem>
+                          <SelectItem value="ATMOS">Dolby Atmos</SelectItem>
                         </SelectContent>
                       </Select>)}
 
@@ -657,6 +719,28 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                     </Select>)}
                 </div>
 
+                {isAtmosSelected && (<div className="flex flex-wrap items-center gap-3 pt-2">
+                    <Switch id="allow-atmos-fallback" checked={tempSettings.allowAtmosFallback} onCheckedChange={(checked) => setTempSettings((prev) => ({
+                    ...prev,
+                    allowAtmosFallback: checked,
+                }))}/>
+                    <Label htmlFor="allow-atmos-fallback" className="text-sm font-normal cursor-pointer">
+                      Fallback to FLAC
+                    </Label>
+                    {tempSettings.allowAtmosFallback && (<Select value={tempSettings.atmosFallbackQuality} onValueChange={(value: "16" | "24") => setTempSettings((prev) => ({
+                        ...prev,
+                        atmosFallbackQuality: value,
+                    }))}>
+                        <SelectTrigger className="h-8 w-fit">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="16">16-bit/44.1kHz</SelectItem>
+                          <SelectItem value="24">24-bit/48kHz - 192kHz</SelectItem>
+                        </SelectContent>
+                      </Select>)}
+                  </div>)}
+
                 {((effectiveDownloader === "tidal" &&
                 tempSettings.tidalQuality === "HI_RES_LOSSLESS") ||
                 (effectiveDownloader === "qobuz" &&
@@ -664,7 +748,8 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                 (effectiveDownloader === "amazon" &&
                     tempSettings.amazonQuality === "24") ||
                 (effectiveDownloader === "auto" &&
-                    tempSettings.autoQuality === "24")) && (<div className="flex items-center gap-3 pt-2">
+                    tempSettings.autoQuality === "24") ||
+                (isAtmosSelected && tempSettings.allowAtmosFallback && tempSettings.atmosFallbackQuality === "24")) && (<div className="flex items-center gap-3 pt-2">
                       <Switch id="allow-fallback" checked={tempSettings.allowFallback} onCheckedChange={(checked) => setTempSettings((prev) => ({
                     ...prev,
                     allowFallback: checked,
@@ -777,6 +862,7 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                   <SelectContent>
                     <SelectItem value="filename">Filename</SelectItem>
                     <SelectItem value="isrc">ISRC</SelectItem>
+                    <SelectItem value="hybrid">Hybrid</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -802,7 +888,43 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
               </div>
             </div>
 
-            <div className="space-y-4 lg:pl-0">
+            <div className="space-y-6 lg:pl-0">
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground">Conversion</h3>
+                <div className="flex items-center gap-3">
+                  <Switch id="auto-convert-audio" checked={tempSettings.autoConvertAudio} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, autoConvertAudio: checked }))}/>
+                  <Label htmlFor="auto-convert-audio" className="text-sm font-normal cursor-pointer">Auto Convert Audio</Label>
+                </div>
+                {tempSettings.autoConvertAudio && (<div className="space-y-4 pl-7">
+                  <div className="flex gap-3 flex-wrap">
+                    <div className="space-y-2"><Label htmlFor="auto-convert-format">Format</Label><Select value={tempSettings.autoConvertFormat} onValueChange={(value: SettingsType["autoConvertFormat"]) => setTempSettings((prev) => ({ ...prev, autoConvertFormat: value }))}>
+                      <SelectTrigger id="auto-convert-format" className="w-32"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="mp3">MP3</SelectItem><SelectItem value="m4a-aac">M4A (AAC)</SelectItem><SelectItem value="m4a-alac">M4A (ALAC)</SelectItem><SelectItem value="wav">WAV</SelectItem><SelectItem value="aiff">AIFF</SelectItem><SelectItem value="opus">Opus</SelectItem></SelectContent>
+                    </Select></div>
+                    {!(["m4a-alac", "wav", "aiff"] as string[]).includes(tempSettings.autoConvertFormat) && (<div className="space-y-2"><Label htmlFor="auto-convert-bitrate">Bitrate</Label><Select value={tempSettings.autoConvertBitrate} onValueChange={(value: SettingsType["autoConvertBitrate"]) => setTempSettings((prev) => ({ ...prev, autoConvertBitrate: value }))}>
+                      <SelectTrigger id="auto-convert-bitrate" className="w-32"><SelectValue /></SelectTrigger><SelectContent>{AUTO_CONVERT_BITRATES.map((bitrate) => <SelectItem key={bitrate} value={bitrate}>{bitrate}</SelectItem>)}</SelectContent>
+                    </Select></div>)}
+                  </div>
+                  <div className="flex items-center gap-3"><Switch id="auto-convert-delete-original" checked={tempSettings.autoConvertDeleteOriginal} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, autoConvertDeleteOriginal: checked }))}/><Label htmlFor="auto-convert-delete-original" className="text-sm font-normal cursor-pointer">Delete Original File After Convert</Label></div>
+                </div>)}
+                <div className="flex items-center gap-3">
+                  <Switch id="auto-resample-audio" checked={tempSettings.autoResampleAudio} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, autoResampleAudio: checked }))}/>
+                  <Label htmlFor="auto-resample-audio" className="text-sm font-normal cursor-pointer">Auto Resample Audio</Label>
+                </div>
+                {tempSettings.autoResampleAudio && (<div className="space-y-4 pl-7">
+                  <div className="flex gap-3 flex-wrap">
+                    <div className="space-y-2"><Label htmlFor="auto-resample-bit-depth">Bit Depth</Label><Select value={tempSettings.autoResampleBitDepth} onValueChange={(value: SettingsType["autoResampleBitDepth"]) => setTempSettings((prev) => ({ ...prev, autoResampleBitDepth: value }))}>
+                      <SelectTrigger id="auto-resample-bit-depth" className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="16">16-bit</SelectItem><SelectItem value="24">24-bit</SelectItem></SelectContent>
+                    </Select></div>
+                    <div className="space-y-2"><Label htmlFor="auto-resample-rate">Sample Rate</Label><Select value={tempSettings.autoResampleSampleRate} onValueChange={(value: SettingsType["autoResampleSampleRate"]) => setTempSettings((prev) => ({ ...prev, autoResampleSampleRate: value }))}>
+                      <SelectTrigger id="auto-resample-rate" className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="44100">44.1 kHz</SelectItem><SelectItem value="48000">48 kHz</SelectItem><SelectItem value="96000">96 kHz</SelectItem><SelectItem value="192000">192 kHz</SelectItem></SelectContent>
+                    </Select></div>
+                  </div>
+                  <div className="flex items-center gap-3"><Switch id="auto-resample-delete-original" checked={tempSettings.autoResampleDeleteOriginal} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, autoResampleDeleteOriginal: checked }))}/><Label htmlFor="auto-resample-delete-original" className="text-sm font-normal cursor-pointer">Delete Original File After Resample</Label></div>
+                </div>)}
+              </div>
+
+              <div className="space-y-4">
               <h3 className="text-sm font-semibold text-muted-foreground">M3U8 Playlist</h3>
 
               <div className="flex items-center gap-3">
@@ -814,80 +936,33 @@ export function SettingsPage({ onUnsavedChangesChange, onResetRequest, }: Settin
                   Create M3U8 Playlist File
                 </Label>
               </div>
+              </div>
             </div>
           </div>)}
 
-        {activeTab === "metadata" && (<div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Switch id="embed-lyrics" checked={tempSettings.embedLyrics} onCheckedChange={(checked) => setTempSettings((prev) => ({
-                ...prev,
-                embedLyrics: checked,
-            }))}/>
-                <Label htmlFor="embed-lyrics" className="cursor-pointer text-sm font-normal">
-                  Embed Lyrics
-                </Label>
+        {activeTab === "metadata" && (<div className="min-w-0 overflow-hidden space-y-6">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-muted-foreground">Embedded Tags</h3>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setTempSettings((prev) => ({ ...prev, metadataTags: Object.fromEntries(METADATA_TAG_OPTIONS.map(({ key }) => [key, true])) as unknown as MetadataTagToggles }))}>Enable All</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setTempSettings((prev) => ({ ...prev, metadataTags: Object.fromEntries(METADATA_TAG_OPTIONS.map(({ key }) => [key, false])) as unknown as MetadataTagToggles }))}>Disable All</Button>
               </div>
-
-              <div className="flex items-center gap-3">
-                <Switch id="embed-max-quality-cover" checked={tempSettings.embedMaxQualityCover} onCheckedChange={(checked) => setTempSettings((prev) => ({
-                ...prev,
-                embedMaxQualityCover: checked,
-            }))}/>
-                <Label htmlFor="embed-max-quality-cover" className="cursor-pointer text-sm font-normal">
-                  Embed Max Quality Cover
-                </Label>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Switch id="embed-genre" checked={tempSettings.embedGenre} onCheckedChange={(checked) => setTempSettings((prev) => ({
-                ...prev,
-                embedGenre: checked,
-            }))}/>
-                <Label htmlFor="embed-genre" className="cursor-pointer text-sm font-normal">
-                  Embed Genre
-                </Label>
-              </div>
-
-              {tempSettings.embedGenre && (<div className="flex items-center gap-3">
-                  <Switch id="use-single-genre" checked={tempSettings.useSingleGenre} onCheckedChange={(checked) => setTempSettings((prev) => ({
-                    ...prev,
-                    useSingleGenre: checked,
-                }))}/>
-                  <Label htmlFor="use-single-genre" className="text-sm cursor-pointer font-normal">
-                    Use Single Genre
+            </div>
+            <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 md:gap-x-8">
+              {[METADATA_TAG_OPTIONS.slice(0, 7), METADATA_TAG_OPTIONS.slice(7)].map((column, columnIndex) => (<div key={columnIndex} className={`min-w-0 ${columnIndex === 1 ? "md:border-l md:pl-8" : ""}`}>
+                {column.map((option) => (<div key={option.key} className="flex min-w-0 items-center gap-3 overflow-hidden py-2">
+                  <Switch id={`metadata-tag-${option.key}`} checked={tempSettings.metadataTags[option.key]} onCheckedChange={(checked) => setTempSettings((prev) => ({ ...prev, metadataTags: { ...prev.metadataTags, [option.key]: checked } }))}/>
+                  <Label htmlFor={`metadata-tag-${option.key}`} className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-1 overflow-hidden text-sm font-normal">
+                    <span className="shrink-0">{option.label}</span>
+                    <span className="min-w-0 flex-1 truncate text-muted-foreground">(e.g. {option.example})</span>
                   </Label>
-                </div>)}
+                </div>))}
+              </div>))}
             </div>
+          </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Switch id="use-first-artist-only" checked={tempSettings.useFirstArtistOnly} onCheckedChange={(checked) => setTempSettings((prev) => ({
-                ...prev,
-                useFirstArtistOnly: checked,
-            }))}/>
-                <Label htmlFor="use-first-artist-only" className="text-sm cursor-pointer font-normal">
-                  Use First Artist Only
-                </Label>
-              </div>
-
-              {!tempSettings.useFirstArtistOnly && (<div className="space-y-2">
-                <Label className="text-sm">Artist Separator</Label>
-                <Select value={tempSettings.separator} onValueChange={(value: "comma" | "semicolon") => setTempSettings((prev) => ({
-                    ...prev,
-                    separator: value,
-                }))}>
-                  <SelectTrigger className="h-9 w-fit">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="comma">Comma (,)</SelectItem>
-                    <SelectItem value="semicolon">Semicolon (;)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>)}
-            </div>
-          </div>)}
+        </div>)}
 
         {activeTab === "status" && (<ApiStatusTab />)}
       </div>

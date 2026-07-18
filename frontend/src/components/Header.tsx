@@ -23,7 +23,7 @@ export function Header({ version, hasUpdate, releaseDate }: HeaderProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge variant="default" asChild>
-                  <button type="button" onClick={() => openExternal("https://github.com/spotbye/SpotiFLAC/releases")} className="cursor-pointer hover:opacity-80 transition-opacity">
+                  <button type="button" onClick={() => openExternal("https://github.com/spotbye/SpotiFLAC/releases/latest")} className="cursor-pointer hover:opacity-80 transition-opacity">
                     v{version}
                   </button>
                 </Badge>

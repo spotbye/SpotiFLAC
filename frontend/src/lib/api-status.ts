@@ -23,7 +23,6 @@ export const SPOTIFLAC_NEXT_SOURCES: SpotiFLACNextSource[] = [
     { id: "qobuz", name: "Qobuz", statusPrefix: "qobuz_" },
     { id: "amazon", name: "Amazon Music", statusPrefix: "amazon_" },
     { id: "deezer", name: "Deezer", statusPrefix: "deezer_" },
-    { id: "apple", name: "Apple Music", statusKey: "apple" },
 ];
 type SpotiFLACStatusPayloadKind = "next" | "current";
 const SPOTIFLAC_STATUS_MAX_ATTEMPTS = 3;

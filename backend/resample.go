@@ -5,9 +5,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 type FlacInfo struct {
@@ -120,6 +123,76 @@ func buildFolderLabel(sampleRate, bitDepth string) string {
 	return strings.Join(parts, " ")
 }
 
+func buildAutoResampleArgs(inputFile, outputFile, sampleRate, bitDepth string) []string {
+	args := []string{"-i", inputFile, "-y"}
+	switch bitDepth {
+	case "16":
+		args = append(args, "-c:a", "flac", "-sample_fmt", "s16")
+	case "24":
+		args = append(args, "-c:a", "flac", "-sample_fmt", "s32", "-bits_per_raw_sample", "24")
+	default:
+		args = append(args, "-c:a", "flac")
+	}
+	if sampleRate != "" {
+		args = append(args, "-ar", sampleRate)
+	}
+	return append(args, "-map_metadata", "0", outputFile)
+}
+
+func ResampleDownloadedFile(inputFile, sampleRate, bitDepth string, deleteOriginal bool) (string, error) {
+	ffmpegPath, err := GetFFmpegPath()
+	if err != nil {
+		return "", fmt.Errorf("failed to get ffmpeg path: %w", err)
+	}
+	if err := ValidateExecutable(ffmpegPath); err != nil {
+		return "", fmt.Errorf("invalid ffmpeg executable: %w", err)
+	}
+	if sampleRate == "" && bitDepth == "" {
+		return "", fmt.Errorf("at least one of sample rate or bit depth must be specified")
+	}
+
+	inputFile = norm.NFC.String(inputFile)
+	inputDir := filepath.Dir(inputFile)
+	inputExt := filepath.Ext(inputFile)
+	baseName := strings.TrimSuffix(filepath.Base(inputFile), inputExt)
+	label := buildFolderLabel(sampleRate, bitDepth)
+	finalOutput := norm.NFC.String(filepath.Join(inputDir, baseName+" ["+label+"].flac"))
+	actualOutput := finalOutput
+	if deleteOriginal {
+		finalOutput = norm.NFC.String(filepath.Join(inputDir, baseName+".flac"))
+		actualOutput = norm.NFC.String(filepath.Join(inputDir, baseName+".autoresample.flac"))
+	}
+
+	cmd := exec.CommandContext(ActiveDownloadContext(), ffmpegPath, buildAutoResampleArgs(inputFile, actualOutput, sampleRate, bitDepth)...)
+	setHideWindow(cmd)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		_ = os.Remove(actualOutput)
+		if cancelErr := WrapDownloadCancelled(err); IsDownloadCancelledError(cancelErr) {
+			return "", cancelErr
+		}
+		return "", fmt.Errorf("resampling failed: %s - %s", err.Error(), string(output))
+	}
+
+	if deleteOriginal {
+		backupPath := norm.NFC.String(filepath.Join(inputDir, baseName+".autoresample-backup"+inputExt))
+		_ = os.Remove(backupPath)
+		if err := os.Rename(inputFile, backupPath); err != nil {
+			_ = os.Remove(actualOutput)
+			return "", fmt.Errorf("failed to prepare original file for replacement: %w", err)
+		}
+		if err := os.Rename(actualOutput, finalOutput); err != nil {
+			_ = os.Rename(backupPath, inputFile)
+			_ = os.Remove(actualOutput)
+			return "", fmt.Errorf("failed to move resampled file into place: %w", err)
+		}
+		_ = os.Remove(backupPath)
+	}
+
+	fmt.Printf("[Auto Resample] Completed: %s\n", finalOutput)
+	return finalOutput, nil
+}
+
 func ResampleAudio(req ResampleRequest) ([]ResampleResult, error) {
 	ffmpegPath, err := GetFFmpegPath()
 	if err != nil {
@@ -145,10 +218,16 @@ func ResampleAudio(req ResampleRequest) ([]ResampleResult, error) {
 
 	folderLabel := buildFolderLabel(req.SampleRate, req.BitDepth)
 
+	maxWorkers := min(runtime.NumCPU(), 8)
+	sem := make(chan struct{}, maxWorkers)
+
 	for i, inputFile := range req.InputFiles {
 		wg.Add(1)
 		go func(idx int, inputFile string) {
 			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
 			result := ResampleResult{
 				InputFile: inputFile,

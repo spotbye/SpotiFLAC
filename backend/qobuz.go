@@ -21,7 +21,11 @@ type QobuzDownloader struct {
 }
 
 func (q *QobuzDownloader) SetCustomAPIURL(apiURL string) {
-	q.customURL = strings.TrimRight(strings.TrimSpace(apiURL), "/")
+	apiURL = strings.TrimRight(strings.TrimSpace(apiURL), "/")
+	if !strings.HasPrefix(apiURL, "https://") {
+		apiURL = ""
+	}
+	q.customURL = apiURL
 }
 
 type QobuzTrack struct {
